@@ -6,6 +6,7 @@ use App\Models\IkuSkoring;
 use App\Models\Realisasi;
 use App\Models\TahunAnggaran;
 use App\Models\User;
+use App\Services\MonthlySummaryService;
 use Illuminate\Database\Seeder;
 
 /**
@@ -122,7 +123,28 @@ class DummySkoringSeeder extends Seeder
         $this->command->info('   - Bulan 3   → ta_done (skor_ta terisi, menunggu Bupati)');
         $this->command->info('   - Bulan 4   → ai_done (menunggu TA)');
         $this->command->info('');
-        $this->command->info('   Jalankan hitungUlang di dashboard untuk update MonthlySummary.');
+
+        // Hitung MonthlySummary untuk semua OPD TERLEBIH DAHULU (termasuk Disdik)
+        $this->command->info('📊 Menghitung MonthlySummary untuk semua OPD...');
+        $summaryService = app(MonthlySummaryService::class);
+        for ($bulan = 1; $bulan <= 12; $bulan++) {
+            $summaryService->hitungSemua($bulan, 2026);
+        }
+        $this->command->info('✅ MonthlySummary berhasil dihitung.');
+
+        // KEMUDIAN sinkronisasi skor kontribusi OPD ke indikator Asisten
+        $this->command->info('🔄 Menyinkronisasi skor kontribusi OPD ke indikator Asisten...');
+        for ($bulan = 1; $bulan <= 12; $bulan++) {
+            $summaryService->sinkronSkorKontribusi($bulan, 2026);
+        }
+        $this->command->info('✅ Sinkronisasi selesai.');
+
+        // Terakhir, hitung ulang MonthlySummary untuk Asisten (dengan kontribusi yang sudah tersinkronisasi)
+        $this->command->info('📊 Menghitung ulang MonthlySummary Asisten dengan kontribusi...');
+        for ($bulan = 1; $bulan <= 12; $bulan++) {
+            $summaryService->hitungSemua($bulan, 2026);
+        }
+        $this->command->info('✅ Semua perhitungan selesai!');
     }
 
     private function generateReasoning(float $pct, string $namaIndikator, int $bulan): string

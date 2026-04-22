@@ -6,14 +6,16 @@ use App\Models\MonthlySummary;
 use App\Models\Opd;
 use App\Models\Setting;
 use App\Services\MonthlySummaryService;
+use Flux\Flux;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Flux\Flux;
 
 new #[Title('Dashboard IKU')] class extends Component
 {
     public int $bulan;
+
     public int $tahun;
 
     /** null = semua | opd-id = filter ke unit tertentu */
@@ -34,7 +36,7 @@ new #[Title('Dashboard IKU')] class extends Component
 
     /** Daftar unit level atas: Sekda + Asisten-asisten */
     #[Computed]
-    public function unitOptions(): \Illuminate\Support\Collection
+    public function unitOptions(): Collection
     {
         return Opd::whereIn('type', ['sekda', 'asisten'])->orderBy('type')->orderBy('name')->get();
     }
@@ -45,7 +47,7 @@ new #[Title('Dashboard IKU')] class extends Component
      * - filterUnitId = id  → Unit itu sendiri di baris 1, diikuti OPD bawahannya
      */
     #[Computed]
-    public function summaries(): \Illuminate\Support\Collection
+    public function summaries(): Collection
     {
         $base = MonthlySummary::with('opd')
             ->where('bulan', $this->bulan)
@@ -70,7 +72,7 @@ new #[Title('Dashboard IKU')] class extends Component
 
             $childSummaries = (clone $base)
                 ->whereIn('opd_id', $linkedOpdIds)
-                ->whereHas('opd', fn ($q) => $q->whereIn('type', ['opd', 'kabag']))
+                ->whereHas('opd', fn ($q) => $q->whereIn('type', ['opd', 'kabag', 'asisten']))
                 ->orderBy(Opd::select('name')->whereColumn('opds.id', 'monthly_summaries.opd_id')->limit(1))
                 ->get();
 
@@ -82,9 +84,9 @@ new #[Title('Dashboard IKU')] class extends Component
             ->whereHas('opd', fn ($q) => $q->whereIn('type', ['sekda', 'asisten']))
             ->get()
             ->sortBy(fn ($s) => match ($s->opd?->type) {
-                'sekda'   => '0_'.$s->opd->name,
+                'sekda' => '0_'.$s->opd->name,
                 'asisten' => '1_'.$s->opd->name,
-                default   => '9_'.$s->opd->name,
+                default => '9_'.$s->opd->name,
             });
 
         $opdRows = (clone $base)
@@ -106,11 +108,78 @@ new #[Title('Dashboard IKU')] class extends Component
     #[Computed]
     public function pendingTaCount(): int
     {
-        return IkuSkoring::where('status', 'ai_done')
+        return IkuSkoring::whereIn('status', ['pending', 'ai_done', 'ta_done'])
             ->where('bulan', $this->bulan)
             ->where('tahun', $this->tahun)
             ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
             ->count();
+    }
+
+    /**
+     * Agregat scoring per UNIT (Asisten/Sekda) — group by asisten_id.
+     * Semua indikator milik OPD di bawah Asisten yang sama diagregatkan.
+     */
+    #[Computed]
+    public function skoringPerUnit(): Collection
+    {
+        $skorings = IkuSkoring::with([
+            'indikator' => fn ($q) => $q
+                ->with(['opd:id,name', 'asisten:id,name', 'sekda:id,name'])
+                ->select('id', 'opd_id', 'asisten_id', 'sekda_id', 'nama', 'bobot'),
+        ])
+            ->where('bulan', $this->bulan)
+            ->where('tahun', $this->tahun)
+            ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
+            ->get();
+
+        // Group by asisten_id (fallback ke sekda_id jika tidak ada asisten)
+        return $skorings
+            ->groupBy(function ($s) {
+                return $s->indikator?->asisten_id
+                    ?? ('sekda_'.($s->indikator?->sekda_id ?? 'unknown'));
+            })
+            ->map(function ($group, $groupKey) {
+                // Resolusi nama unit
+                $firstIndikator = $group->first()?->indikator;
+                $unitName = $firstIndikator?->asisten?->name
+                    ?? $firstIndikator?->sekda?->name
+                    ?? 'Unit Tidak Diketahui';
+                $unitType = $firstIndikator?->asisten_id ? 'asisten' : 'sekda';
+
+                // Himpun OPD unik yang terlibat
+                $opdNames = $group
+                    ->map(fn ($s) => $s->indikator?->opd?->name)
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                $total = $group->count();
+                $final = $group->where('status', 'final')->count();
+                $ta_done = $group->where('status', 'ta_done')->count();
+                $ai_done = $group->where('status', 'ai_done')->count();
+                $pending = $group->where('status', 'pending')->count();
+
+                $withAi = $group->whereNotNull('skor_ai');
+                $withTa = $group->whereNotNull('skor_ta');
+                $withFinal = $group->whereNotNull('skor_bupati');
+
+                return [
+                    'unit_name' => $unitName,
+                    'unit_type' => $unitType,
+                    'opd_names' => $opdNames,
+                    'total' => $total,
+                    'pending' => $pending,
+                    'ai_done' => $ai_done,
+                    'ta_done' => $ta_done,
+                    'final' => $final,
+                    'avg_ai' => $withAi->isNotEmpty() ? round($withAi->avg('skor_ai'), 1) : null,
+                    'avg_ta' => $withTa->isNotEmpty() ? round($withTa->avg('skor_ta'), 1) : null,
+                    'avg_final' => $withFinal->isNotEmpty() ? round($withFinal->avg('skor_bupati'), 1) : null,
+                    'pct_final' => $total > 0 ? round(($final / $total) * 100) : 0,
+                ];
+            })
+            ->sortByDesc('pct_final')
+            ->values();
     }
 
     #[Computed]
@@ -124,7 +193,7 @@ new #[Title('Dashboard IKU')] class extends Component
     }
 
     #[Computed]
-    public function recentPendingSkoring(): \Illuminate\Support\Collection
+    public function recentPendingSkoring(): Collection
     {
         return IkuSkoring::with(['indikator.opd', 'indikator.bidang'])
             ->where('status', 'ai_done')
@@ -145,12 +214,12 @@ new #[Title('Dashboard IKU')] class extends Component
 
     public function updatedBulan(): void
     {
-        unset($this->summaries, $this->pendingTaCount, $this->sudahFinalCount, $this->recentPendingSkoring);
+        unset($this->summaries, $this->pendingTaCount, $this->sudahFinalCount, $this->recentPendingSkoring, $this->skoringPerUnit);
     }
 
     public function updatedTahun(): void
     {
-        unset($this->summaries, $this->pendingTaCount, $this->sudahFinalCount, $this->recentPendingSkoring);
+        unset($this->summaries, $this->pendingTaCount, $this->sudahFinalCount, $this->recentPendingSkoring, $this->skoringPerUnit);
     }
 
     public function updatedFilterUnitId(): void
@@ -160,6 +229,9 @@ new #[Title('Dashboard IKU')] class extends Component
 
     public function hitungUlang(): void
     {
+        // 1. Sinkronisasi skor kontribusi OPD ke indikator Asisten terlebih dahulu
+        $this->summaryService->sinkronSkorKontribusi($this->bulan, $this->tahun);
+        // 2. Hitung MonthlySummary untuk semua OPD (including Asisten dengan kontribusi-nya)
         $this->summaryService->hitungSemua($this->bulan, $this->tahun);
         unset($this->summaries);
         Flux::toast('Rekap berhasil dihitung ulang.');
@@ -172,7 +244,10 @@ new #[Title('Dashboard IKU')] class extends Component
 
     private function labelUnit(?Opd $opd): string
     {
-        if (! $opd) return 'Semua OPD';
+        if (! $opd) {
+            return 'Semua OPD';
+        }
+
         return $opd->name;
     }
 };
@@ -461,6 +536,142 @@ new #[Title('Dashboard IKU')] class extends Component
             </table>
         @endif
     </div>
+
+    {{-- ===== SCORING AGREGAT PER UNIT ===== --}}
+    @if($this->skoringPerUnit->isNotEmpty())
+        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden mb-6">
+            <div class="bg-zinc-50 dark:bg-zinc-800 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <flux:icon name="trophy" class="size-4 text-indigo-500" />
+                    <flux:heading size="sm">Progres Scoring per Unit</flux:heading>
+                    <flux:badge size="sm" variant="blue">{{ $this->namaBulan($bulan) }} {{ $tahun }}</flux:badge>
+                </div>
+                <p class="text-xs text-zinc-400">Hanya unit yang sudah punya data realisasi terverifikasi</p>
+            </div>
+
+            <div class="p-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                @foreach($this->skoringPerUnit as $unit)
+                    @php
+                        $total   = $unit['total'];
+                        $final   = $unit['final'];
+                        $ta      = $unit['ta_done'];
+                        $ai      = $unit['ai_done'];
+                        $pend    = $unit['pending'];
+                        $pctFin  = $unit['pct_final'];
+                        $avgFin  = $unit['avg_final'];
+                        $avgTa   = $unit['avg_ta'];
+                        $avgAi   = $unit['avg_ai'];
+
+                        $perfColor = $avgFin !== null
+                            ? ($avgFin >= 8 ? 'green' : ($avgFin >= 6 ? 'yellow' : 'red'))
+                            : ($avgTa !== null
+                                ? ($avgTa >= 8 ? 'green' : ($avgTa >= 6 ? 'yellow' : 'red'))
+                                : 'zinc');
+
+                        $perfLabel = match($perfColor) {
+                            'green' => 'Baik', 'yellow' => 'Cukup', 'red' => 'Kurang', default => 'Proses'
+                        };
+                    @endphp
+                    <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4 space-y-3">
+                        {{-- Header card --}}
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5 mb-0.5">
+                                    <span class="text-sm">{{ $unit['unit_type'] === 'sekda' ? '🏛' : '📋' }}</span>
+                                    <p class="font-semibold text-zinc-900 dark:text-zinc-100 text-sm truncate">
+                                        {{ $unit['unit_name'] }}
+                                    </p>
+                                </div>
+                                <p class="text-xs text-zinc-400">{{ $total }} indikator</p>
+                                @if($unit['opd_names']->isNotEmpty())
+                                    <p class="text-xs text-zinc-400 mt-0.5 truncate">
+                                        OPD: {{ $unit['opd_names']->implode(' · ') }}
+                                    </p>
+                                @endif
+                            </div>
+                            <flux:badge variant="{{ $perfColor }}" size="sm">{{ $perfLabel }}</flux:badge>
+                        </div>
+
+                        {{-- Progress bar stacked --}}
+                        <div>
+                            <div class="flex h-2.5 rounded-full overflow-hidden gap-px bg-zinc-100 dark:bg-zinc-800">
+                                @if($final > 0)
+                                    <div class="bg-green-500 transition-all" style="width:{{ ($final/$total)*100 }}%" title="{{ $final }} Final"></div>
+                                @endif
+                                @if($ta > 0)
+                                    <div class="bg-purple-400 transition-all" style="width:{{ ($ta/$total)*100 }}%" title="{{ $ta }} TA Done"></div>
+                                @endif
+                                @if($ai > 0)
+                                    <div class="bg-blue-400 transition-all" style="width:{{ ($ai/$total)*100 }}%" title="{{ $ai }} AI Done"></div>
+                                @endif
+                                @if($pend > 0)
+                                    <div class="bg-zinc-300 dark:bg-zinc-600 transition-all" style="width:{{ ($pend/$total)*100 }}%" title="{{ $pend }} Pending"></div>
+                                @endif
+                            </div>
+                            <div class="flex justify-between mt-1">
+                                <span class="text-xs text-zinc-400">{{ $pctFin }}% final</span>
+                                <span class="text-xs text-zinc-400">{{ $final }}/{{ $total }}</span>
+                            </div>
+                        </div>
+
+                        {{-- Status pill row --}}
+                        <div class="flex flex-wrap gap-1.5">
+                            @if($final > 0)
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-medium">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>{{ $final }} Final
+                                </span>
+                            @endif
+                            @if($ta > 0)
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 font-medium">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-purple-400 inline-block"></span>{{ $ta }} TA
+                                </span>
+                            @endif
+                            @if($ai > 0)
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block"></span>{{ $ai }} AI
+                                </span>
+                            @endif
+                            @if($pend > 0)
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-medium">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-zinc-400 inline-block"></span>{{ $pend }} Pending
+                                </span>
+                            @endif
+                        </div>
+
+                        {{-- Skor rata-rata --}}
+                        <div class="grid grid-cols-3 gap-2 pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                            <div class="text-center">
+                                <p class="text-xs text-zinc-400 mb-0.5">Skor AI</p>
+                                <p class="text-sm font-bold {{ $avgAi !== null ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-300' }}">
+                                    {{ $avgAi !== null ? $avgAi : '-' }}
+                                </p>
+                            </div>
+                            <div class="text-center border-x border-zinc-100 dark:border-zinc-800">
+                                <p class="text-xs text-zinc-400 mb-0.5">Skor TA</p>
+                                <p class="text-sm font-bold {{ $avgTa !== null ? 'text-purple-600 dark:text-purple-400' : 'text-zinc-300' }}">
+                                    {{ $avgTa !== null ? $avgTa : '-' }}
+                                </p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-xs text-zinc-400 mb-0.5">Final</p>
+                                <p class="text-base font-extrabold {{ $avgFin !== null ? ($perfColor === 'green' ? 'text-green-600' : ($perfColor === 'yellow' ? 'text-yellow-600' : 'text-red-600')) : 'text-zinc-300' }}">
+                                    {{ $avgFin !== null ? $avgFin : '-' }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
+            {{-- Legend --}}
+            <div class="px-4 pb-3 flex items-center gap-4 flex-wrap text-xs text-zinc-500">
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-green-500 inline-block"></span> Final (Bupati)</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-purple-400 inline-block"></span> TA Done</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-blue-400 inline-block"></span> AI Done</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-zinc-300 inline-block"></span> Pending</span>
+            </div>
+        </div>
+    @endif
 
     {{-- IKU Pending Skoring TA --}}
     @if($this->recentPendingSkoring->isNotEmpty())
