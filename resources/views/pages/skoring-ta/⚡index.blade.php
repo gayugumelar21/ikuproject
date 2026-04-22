@@ -34,6 +34,12 @@ new #[Title('Skoring Tenaga Ahli')] class extends Component
     }
 
     #[Computed]
+    public function belumSkoring()
+    {
+        return $this->service->getIndikatorBelumSkoring($this->bulan, $this->tahun);
+    }
+
+    #[Computed]
     public function skorings()
     {
         return $this->service->getPendingUntukTa($this->bulan, $this->tahun);
@@ -66,7 +72,23 @@ new #[Title('Skoring Tenaga Ahli')] class extends Component
             Flux::toast('Gagal generate skor AI. Pastikan ANTHROPIC_API_KEY di .env sudah diisi dan ada data realisasi bulan ini.', variant: 'danger');
         }
 
-        unset($this->skorings);
+        unset($this->belumSkoring, $this->skorings);
+    }
+
+    public function generateAllAi(): void
+    {
+        $this->authorize('skoring-ai');
+        $generated = 0;
+
+        foreach ($this->belumSkoring as $indikator) {
+            $result = $this->aiService->generate($indikator, $this->bulan, $this->tahun);
+            if ($result) {
+                $generated++;
+            }
+        }
+
+        Flux::toast("Berhasil generate AI untuk {$generated} indikator.");
+        unset($this->belumSkoring, $this->skorings);
     }
 
     public function simpan(): void
@@ -122,106 +144,191 @@ new #[Title('Skoring Tenaga Ahli')] class extends Component
         </flux:callout.text>
     </flux:callout>
 
-    {{-- Tabel Pending --}}
-    @if ($this->skorings->isNotEmpty())
-        <div class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
-            <table class="w-full text-sm">
-                <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
-                    <tr>
-                        <th class="px-4 py-3 text-left font-medium">OPD / Bidang</th>
-                        <th class="px-4 py-3 text-left font-medium">Indikator</th>
-                        <th class="px-4 py-3 text-center font-medium">Tipe</th>
-                        <th class="px-4 py-3 text-left font-medium">Realisasi</th>
-                        <th class="px-4 py-3 text-center font-medium">Skor AI</th>
-                        <th class="px-4 py-3 text-center font-medium">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-                    @foreach ($this->skorings as $skoring)
-                        <tr wire:key="skoring-{{ $skoring->id }}" class="bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800">
-                            <td class="px-4 py-3">
-                                <div class="font-medium text-zinc-900 dark:text-zinc-100 text-xs">
-                                    {{ $skoring->indikator->opd?->name ?? '-' }}
-                                </div>
-                                <div class="text-zinc-500 text-xs">
-                                    {{ $skoring->indikator->bidang?->name ?? '-' }}
-                                </div>
-                            </td>
-                            <td class="px-4 py-3">
-                                <div class="font-medium text-zinc-900 dark:text-zinc-100 max-w-xs">
-                                    {{ $skoring->indikator->nama }}
-                                </div>
-                                <div class="text-xs text-zinc-500 mt-0.5">Bobot: {{ $skoring->indikator->bobot }}%</div>
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                @if ($skoring->indikator->measurement_type === 'kualitatif')
-                                    <flux:badge variant="blue" size="sm">Kualitatif</flux:badge>
-                                @else
-                                    <flux:badge variant="green" size="sm">Kuantitatif</flux:badge>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300 max-w-xs">
-                                @if ($skoring->realisasi)
-                                    @if ($skoring->indikator->measurement_type === 'kuantitatif')
-                                        <span class="font-medium">{{ $skoring->realisasi->nilai }} {{ $skoring->indikator->satuan }}</span>
+    {{-- Seksi: Siap Generate AI --}}
+    @if ($this->belumSkoring->isNotEmpty())
+        <div class="space-y-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <flux:heading size="lg">Siap Generate AI</flux:heading>
+                    <flux:text class="text-zinc-500 text-sm">
+                        {{ $this->belumSkoring->count() }} indikator sudah ada realisasi, belum masuk proses skoring.
+                    </flux:text>
+                </div>
+                <flux:button
+                    size="sm"
+                    variant="primary"
+                    icon="cpu-chip"
+                    wire:click="generateAllAi"
+                    wire:loading.attr="disabled"
+                    wire:confirm="Generate AI untuk semua {{ $this->belumSkoring->count() }} indikator sekaligus?"
+                >
+                    <span wire:loading.remove wire:target="generateAllAi">Generate Semua</span>
+                    <span wire:loading wire:target="generateAllAi">Memproses...</span>
+                </flux:button>
+            </div>
+
+            <div class="overflow-x-auto rounded-lg border border-amber-200 dark:border-amber-700">
+                <table class="w-full text-sm">
+                    <thead class="bg-amber-50 dark:bg-amber-900/30 text-zinc-600 dark:text-zinc-300">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-medium">OPD / Bidang</th>
+                            <th class="px-4 py-3 text-left font-medium">Indikator</th>
+                            <th class="px-4 py-3 text-left font-medium">Realisasi Bulan Ini</th>
+                            <th class="px-4 py-3 text-center font-medium">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-amber-100 dark:divide-amber-800">
+                        @foreach ($this->belumSkoring as $indikator)
+                            @php $realisasi = $indikator->realisasi->first(); @endphp
+                            <tr wire:key="belum-{{ $indikator->id }}" class="bg-white dark:bg-zinc-900 hover:bg-amber-50 dark:hover:bg-amber-900/20">
+                                <td class="px-4 py-3">
+                                    <div class="font-medium text-zinc-900 dark:text-zinc-100 text-xs">
+                                        {{ $indikator->opd?->name ?? '-' }}
+                                    </div>
+                                    <div class="text-zinc-500 text-xs">{{ $indikator->bidang?->name ?? '-' }}</div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="font-medium text-zinc-900 dark:text-zinc-100 max-w-xs">
+                                        {{ $indikator->nama }}
+                                    </div>
+                                    <div class="text-xs text-zinc-500 mt-0.5">Bobot: {{ $indikator->bobot }}%</div>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300 max-w-xs">
+                                    @if ($realisasi)
+                                        @if ($indikator->measurement_type !== 'kualitatif')
+                                            <span class="font-medium">{{ $realisasi->nilai }} {{ $indikator->satuan }}</span>
+                                        @endif
+                                        @if ($realisasi->keterangan)
+                                            <p class="text-xs text-zinc-500 mt-0.5 line-clamp-2">{{ $realisasi->keterangan }}</p>
+                                        @endif
+                                    @else
+                                        <span class="text-zinc-400 italic text-xs">—</span>
                                     @endif
-                                    @if ($skoring->realisasi->keterangan)
-                                        <p class="text-xs text-zinc-500 mt-0.5 line-clamp-2">{{ $skoring->realisasi->keterangan }}</p>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    <flux:button
+                                        size="sm"
+                                        variant="filled"
+                                        icon="cpu-chip"
+                                        wire:click="generateAi({{ $indikator->id }})"
+                                        wire:loading.attr="disabled"
+                                        wire:target="generateAi({{ $indikator->id }})"
+                                    >
+                                        <span wire:loading.remove wire:target="generateAi({{ $indikator->id }})">Generate AI</span>
+                                        <span wire:loading wire:target="generateAi({{ $indikator->id }})">...</span>
+                                    </flux:button>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
+
+    {{-- Seksi: Menunggu Pertimbangan TA --}}
+    <div class="space-y-3">
+        @if ($this->belumSkoring->isNotEmpty() && $this->skorings->isNotEmpty())
+            <flux:heading size="lg">Menunggu Pertimbangan TA</flux:heading>
+        @endif
+
+        @if ($this->skorings->isNotEmpty())
+            <div class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
+                <table class="w-full text-sm">
+                    <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-medium">OPD / Bidang</th>
+                            <th class="px-4 py-3 text-left font-medium">Indikator</th>
+                            <th class="px-4 py-3 text-center font-medium">Tipe</th>
+                            <th class="px-4 py-3 text-left font-medium">Realisasi</th>
+                            <th class="px-4 py-3 text-center font-medium">Skor AI</th>
+                            <th class="px-4 py-3 text-center font-medium">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                        @foreach ($this->skorings as $skoring)
+                            <tr wire:key="skoring-{{ $skoring->id }}" class="bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800">
+                                <td class="px-4 py-3">
+                                    <div class="font-medium text-zinc-900 dark:text-zinc-100 text-xs">
+                                        {{ $skoring->indikator->opd?->name ?? '-' }}
+                                    </div>
+                                    <div class="text-zinc-500 text-xs">
+                                        {{ $skoring->indikator->bidang?->name ?? '-' }}
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="font-medium text-zinc-900 dark:text-zinc-100 max-w-xs">
+                                        {{ $skoring->indikator->nama }}
+                                    </div>
+                                    <div class="text-xs text-zinc-500 mt-0.5">Bobot: {{ $skoring->indikator->bobot }}%</div>
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    @if ($skoring->indikator->measurement_type === 'kualitatif')
+                                        <flux:badge variant="blue" size="sm">Kualitatif</flux:badge>
+                                    @else
+                                        <flux:badge variant="green" size="sm">Kuantitatif</flux:badge>
                                     @endif
-                                @else
-                                    <span class="text-zinc-400 italic text-xs">Belum ada realisasi</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                @if ($skoring->skor_ai)
-                                    @php
-                                        $aiColor = $skoring->skor_ai >= 7 ? 'green' : ($skoring->skor_ai >= 5 ? 'yellow' : 'red');
-                                    @endphp
-                                    <flux:badge variant="{{ $aiColor }}" size="sm">{{ $skoring->skor_ai }}/10</flux:badge>
-                                    @if ($skoring->ai_reasoning)
-                                        <p class="text-xs text-zinc-500 mt-1 line-clamp-2 max-w-32">{{ $skoring->ai_reasoning }}</p>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300 max-w-xs">
+                                    @if ($skoring->realisasi)
+                                        @if ($skoring->indikator->measurement_type !== 'kualitatif')
+                                            <span class="font-medium">{{ $skoring->realisasi->nilai }} {{ $skoring->indikator->satuan }}</span>
+                                        @endif
+                                        @if ($skoring->realisasi->keterangan)
+                                            <p class="text-xs text-zinc-500 mt-0.5 line-clamp-2">{{ $skoring->realisasi->keterangan }}</p>
+                                        @endif
+                                    @else
+                                        <span class="text-zinc-400 italic text-xs">Belum ada realisasi</span>
                                     @endif
-                                @else
-                                    <flux:badge variant="zinc" size="sm">Belum</flux:badge>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3">
-                                <div class="flex flex-col gap-2 items-center">
+                                </td>
+                                <td class="px-4 py-3 text-center">
+                                    @if ($skoring->skor_ai)
+                                        @php
+                                            $aiColor = $skoring->skor_ai >= 7 ? 'green' : ($skoring->skor_ai >= 5 ? 'yellow' : 'red');
+                                        @endphp
+                                        <flux:badge variant="{{ $aiColor }}" size="sm">{{ $skoring->skor_ai }}/10</flux:badge>
+                                        @if ($skoring->ai_reasoning)
+                                            <p class="text-xs text-zinc-500 mt-1 line-clamp-2 max-w-32">{{ $skoring->ai_reasoning }}</p>
+                                        @endif
+                                    @else
+                                        <flux:button
+                                            size="xs"
+                                            variant="ghost"
+                                            icon="cpu-chip"
+                                            wire:click="generateAi({{ $skoring->indikator_id }})"
+                                            wire:loading.attr="disabled"
+                                            wire:target="generateAi({{ $skoring->indikator_id }})"
+                                        >
+                                            <span wire:loading.remove wire:target="generateAi({{ $skoring->indikator_id }})">Generate AI</span>
+                                            <span wire:loading wire:target="generateAi({{ $skoring->indikator_id }})">...</span>
+                                        </flux:button>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3">
                                     <flux:button
                                         size="sm"
                                         variant="primary"
                                         icon="star"
                                         wire:click="openSkoring({{ $skoring->id }})"
                                     >
-                                        Beri Pertimbangan
+                                        Pertimbangan
                                     </flux:button>
-                                    @if (! $skoring->skor_ai)
-                                        <flux:button
-                                            size="sm"
-                                            variant="ghost"
-                                            icon="cpu-chip"
-                                            wire:click="generateAi({{ $skoring->indikator_id }})"
-                                            wire:loading.attr="disabled"
-                                        >
-                                            Generate AI
-                                        </flux:button>
-                                    @endif
-                                </div>
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    @else
-        <div class="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-200 dark:border-zinc-700 py-16 text-center">
-            <flux:icon name="check-badge" class="h-12 w-12 text-zinc-300 dark:text-zinc-600 mb-3" />
-            <flux:heading size="sm" class="text-zinc-500">Tidak ada indikator yang menunggu skoring TA</flux:heading>
-            <flux:text class="text-zinc-400 mt-1 text-sm">
-                Semua indikator sudah diberi pertimbangan atau belum ada realisasi yang di-generate AI.
-            </flux:text>
-        </div>
-    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @elseif ($this->belumSkoring->isEmpty())
+            <div class="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-200 dark:border-zinc-700 py-16 text-center">
+                <flux:icon name="check-badge" class="h-12 w-12 text-zinc-300 dark:text-zinc-600 mb-3" />
+                <flux:heading size="sm" class="text-zinc-500">Tidak ada indikator yang menunggu skoring TA</flux:heading>
+                <flux:text class="text-zinc-400 mt-1 text-sm">
+                    Semua indikator sudah diberi pertimbangan atau belum ada realisasi bulan ini.
+                </flux:text>
+            </div>
+        @endif
+    </div>
 
     {{-- Modal Skoring TA --}}
     <flux:modal name="modal-skoring-ta" class="md:w-[520px]">

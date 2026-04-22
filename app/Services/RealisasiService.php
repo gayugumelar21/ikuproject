@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\IkuSkoring;
 use App\Models\Realisasi;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -49,6 +50,29 @@ class RealisasiService
     public function verifikasi(Realisasi $realisasi): void
     {
         $realisasi->update(['status' => 'diverifikasi']);
+
+        // Otomatis buat/update record iku_skorings agar masuk antrian scoring
+        $tahun = (int) now()->format('Y');
+        // Cari tahun dari tahun_anggaran indikator jika ada
+        $indikator = $realisasi->indikator;
+        if ($indikator) {
+            $indikator->loadMissing('tahunAnggaran');
+            if ($indikator->tahunAnggaran) {
+                $tahun = (int) $indikator->tahunAnggaran->tahun;
+            }
+        }
+
+        IkuSkoring::firstOrCreate(
+            [
+                'indikator_id' => $realisasi->indikator_id,
+                'bulan' => $realisasi->bulan,
+                'tahun' => $tahun,
+            ],
+            [
+                'realisasi_id' => $realisasi->id,
+                'status' => 'pending',
+            ]
+        );
     }
 
     public function hitungPersentase(Realisasi $realisasi): float

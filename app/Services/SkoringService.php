@@ -122,21 +122,25 @@ class SkoringService
 
     public function getPendingUntukTa(int $bulan, int $tahun): Collection
     {
+        // TA bisa scoring: status pending (ada realisasi) atau ai_done
         return IkuSkoring::with(['indikator.opd', 'indikator.bidang', 'realisasi'])
-            ->where('status', 'ai_done')
+            ->whereIn('status', ['pending', 'ai_done'])
             ->where('bulan', $bulan)
             ->where('tahun', $tahun)
             ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
+            ->whereHas('realisasi') // pastikan ada data realisasi
             ->get();
     }
 
     public function getPendingUntukBupati(int $bulan, int $tahun): Collection
     {
+        // Bupati bisa scoring dari semua status non-final (pending, ai_done, ta_done)
         return IkuSkoring::with(['indikator.opd', 'indikator.bidang', 'realisasi'])
-            ->where('status', 'ta_done')
+            ->whereIn('status', ['pending', 'ai_done', 'ta_done'])
             ->where('bulan', $bulan)
             ->where('tahun', $tahun)
             ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
+            ->whereHas('realisasi') // pastikan ada data realisasi
             ->get();
     }
 
@@ -146,6 +150,32 @@ class SkoringService
             ->where('bulan', $bulan)
             ->where('tahun', $tahun)
             ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
+            ->get();
+    }
+
+    public function getIndikatorBelumSkoring(int $bulan, int $tahun): Collection
+    {
+        return Indikator::with([
+            'opd',
+            'bidang',
+            'realisasi' => fn ($q) => $q->where('bulan', $bulan),
+        ])
+            ->where('category', 'utama')
+            ->disetujui()
+            ->whereHas('realisasi', fn ($q) => $q->where('bulan', $bulan))
+            ->whereHas('tahunAnggaran', fn ($q) => $q->where('tahun', $tahun))
+            ->whereDoesntHave('skorings', fn ($q) => $q->where('bulan', $bulan)->where('tahun', $tahun))
+            ->orderBy('nama')
+            ->get();
+    }
+
+    public function getAllSkorings(int $bulan, int $tahun): Collection
+    {
+        return IkuSkoring::with(['indikator.opd', 'indikator.bidang', 'realisasi', 'taScoredBy', 'finalizedBy'])
+            ->where('bulan', $bulan)
+            ->where('tahun', $tahun)
+            ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
+            ->latest()
             ->get();
     }
 }

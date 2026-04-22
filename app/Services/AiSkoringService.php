@@ -33,8 +33,8 @@ class AiSkoringService
 
         $indikator->loadMissing(['opd', 'bidang']);
 
-        $opdName = $indikator->opd?->nama ?? '-';
-        $bidangName = $indikator->bidang?->nama ?? '-';
+        $opdName = $indikator->opd?->name ?? '-';
+        $bidangName = $indikator->bidang?->name ?? '-';
         $tipePengukuran = $indikator->isKualitatif() ? 'Kualitatif' : 'Kuantitatif';
         $namaBulan = $this->namaBulan[$bulan] ?? $bulan;
         $satuan = $indikator->satuan ?? '';

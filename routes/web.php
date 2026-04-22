@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ExportController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
@@ -20,11 +21,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('kerjasama', 'pages::kerjasama.index')->name('kerjasama.index');
     Route::livewire('skoring-ta', 'pages::skoring-ta.index')->name('skoring-ta.index');
     Route::livewire('skoring-bupati', 'pages::skoring-bupati.index')->name('skoring-bupati.index');
+    Route::livewire('perbandingan-skor', 'pages::perbandingan-skor.index')->name('perbandingan-skor.index');
     Route::livewire('pengaturan', 'pages::pengaturan.index')->name('pengaturan.index');
 
-    Route::get('export/rekap', [App\Http\Controllers\ExportController::class, 'excelRekap'])->name('export.rekap');
-    Route::get('export/detail', [App\Http\Controllers\ExportController::class, 'excelDetail'])->name('export.detail');
-    Route::get('export/pdf/{opdId}', [App\Http\Controllers\ExportController::class, 'pdfOpd'])->name('export.pdf-opd');
+    Route::get('export/rekap', [ExportController::class, 'excelRekap'])->name('export.rekap');
+    Route::get('export/detail', [ExportController::class, 'excelDetail'])->name('export.detail');
+    Route::get('export/pdf/{opdId}', [ExportController::class, 'pdfOpd'])->name('export.pdf-opd');
 });
 
 require __DIR__.'/settings.php';

@@ -2,10 +2,11 @@
 
 use App\Models\IkuSkoring;
 use App\Services\SkoringService;
+use Flux\Flux;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Flux\Flux;
 
 new #[Title('Skoring Bupati')] class extends Component
 {
@@ -151,18 +152,39 @@ new #[Title('Skoring Bupati')] class extends Component
 
                         {{-- Realisasi --}}
                         @if ($skoring->realisasi)
-                            <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-3 text-sm">
-                                <p class="text-xs font-medium text-zinc-500 mb-1">Realisasi</p>
+                            <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-3 text-sm space-y-2">
+                                <p class="text-xs font-medium text-zinc-500">Realisasi</p>
                                 @if ($skoring->indikator->measurement_type === 'kuantitatif')
                                     <p class="font-medium text-zinc-900 dark:text-zinc-100">
                                         {{ $skoring->realisasi->nilai }} {{ $skoring->indikator->satuan }}
                                     </p>
                                 @endif
                                 @if ($skoring->realisasi->keterangan)
-                                    <p class="text-zinc-500 text-xs mt-1">{{ $skoring->realisasi->keterangan }}</p>
+                                    <p class="text-zinc-500 text-xs">{{ $skoring->realisasi->keterangan }}</p>
                                 @endif
+                                @if ($skoring->realisasi->deskripsi_progres)
+                                    <div class="border-t border-zinc-200 dark:border-zinc-700 pt-2">
+                                        <p class="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">📝 Deskripsi Progres:</p>
+                                        <p class="text-xs text-zinc-600 dark:text-zinc-400 italic line-clamp-4">{{ $skoring->realisasi->deskripsi_progres }}</p>
+                                    </div>
+                                @endif
+                                <div class="flex items-center gap-3 pt-1">
+                                    @if ($skoring->realisasi->bukti_link)
+                                        <a href="{{ $skoring->realisasi->bukti_link }}" target="_blank" rel="noopener"
+                                           class="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline">
+                                            🔗 Lihat Bukti Link
+                                        </a>
+                                    @endif
+                                    @if ($skoring->realisasi->foto_bukti)
+                                        <a href="{{ Storage::url($skoring->realisasi->foto_bukti) }}" target="_blank" rel="noopener"
+                                           class="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-800 hover:underline">
+                                            🖼 Lihat Foto Bukti
+                                        </a>
+                                    @endif
+                                </div>
                             </div>
                         @endif
+
 
                         {{-- Skor AI & TA --}}
                         <div class="grid grid-cols-2 gap-3">

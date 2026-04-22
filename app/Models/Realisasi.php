@@ -14,6 +14,9 @@ class Realisasi extends Model
         'bulan',
         'nilai',
         'keterangan',
+        'deskripsi_progres',
+        'bukti_link',
+        'foto_bukti',
         'user_id',
         'status',
     ];

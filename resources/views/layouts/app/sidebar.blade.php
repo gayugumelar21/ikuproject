@@ -142,6 +142,15 @@
                     >
                         {{ __('Skoring Bupati') }}
                     </flux:sidebar.item>
+
+                    <flux:sidebar.item
+                        icon="arrows-right-left"
+                        :href="route('perbandingan-skor.index')"
+                        :current="request()->routeIs('perbandingan-skor.index')"
+                        wire:navigate
+                    >
+                        {{ __('Perbandingan Skor') }}
+                    </flux:sidebar.item>
                 </flux:sidebar.group>
 
                 <flux:sidebar.group :heading="__('Sistem')" class="grid">
