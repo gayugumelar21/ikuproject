@@ -7,7 +7,9 @@ use App\Models\Indikator;
 use App\Models\IndikatorKerjasama;
 use App\Models\User;
 use App\Notifications\SkorBupatiFinalisasi;
+use App\Services\FonnteService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Log;
 
 class SkoringService
 {
@@ -29,15 +31,21 @@ class SkoringService
             'status' => 'ta_done',
         ]);
 
-        // Notify Bupati that TA has provided a score
+        // Notify Bupati (atau admin yang punya izin skoring-bupati jika role bupati kosong)
         try {
-            $wa = app(WhatsAppService::class);
+            $wa = app(FonnteService::class);
             $bupatis = User::role('bupati')->whereNotNull('phone')->get();
+            
+            // Fallback: Jika tidak ada user dengan role bupati, cari user dengan permission skoring-bupati
+            if ($bupatis->isEmpty()) {
+                $bupatis = User::permission('skoring-bupati')->whereNotNull('phone')->get();
+            }
+
             $indikator = $skoring->indikator;
 
             foreach ($bupatis as $bupati) {
                 $msg = "⭐ *Skoring Tenaga Ahli Selesai*\n\nHalo Bapak {$bupati->name}, Tenaga Ahli telah memberikan skor pertimbangan untuk IKU:\n\nOPD: {$indikator->opd?->name}\nIndikator: *{$indikator->nama}*\nSkor TA: *{$skor}/10*\n\nMohon perkenan Bapak untuk memberikan skor final di aplikasi IKU.";
-                $wa->notifyUser($bupati, $msg);
+                $wa->sendMessage($bupati->phone, $msg);
             }
         } catch (\Exception $e) {
             \Log::error("Gagal kirim WA Skor TA: " . $e->getMessage());
@@ -62,9 +70,12 @@ class SkoringService
 
         // Notify owner of the OPD that their IKU score is finalized
         if ($indikator) {
-            $indikator->loadMissing(['owner', 'kerjasamas.owner']);
+            $indikator->loadMissing(['owner', 'kerjasamas.owner', 'dibuatOleh']);
 
-            $penerima = collect([$indikator->owner])
+            // Jika indikator tidak punya owner, kita kirim notifikasi ke pembuat indikator (dibuatOleh)
+            $mainOwner = $indikator->owner ?? $indikator->dibuatOleh;
+
+            $penerima = collect([$mainOwner])
                 ->merge($indikator->kerjasamas->pluck('owner'))
                 ->filter()
                 ->unique('id');
@@ -75,15 +86,15 @@ class SkoringService
 
             // Notify via WhatsApp
             try {
-                $wa = app(WhatsAppService::class);
+                $wa = app(FonnteService::class);
                 foreach ($penerima as $owner) {
                     if ($owner->phone) {
                         $msg = "🏆 *Skor Akhir IKU Selesai*\n\nHalo {$owner->name}, Bupati telah memberikan skor final untuk IKU Anda.\n\nIndikator: *{$indikator->nama}*\nSkor Final: *{$skor}/10*\n\nCatatan Bupati: " . ($notes ?: '-') . "\n\nTerima kasih atas kinerjanya.";
-                        $wa->notifyUser($owner, $msg);
+                        $wa->sendMessage($owner->phone, $msg);
                     }
                 }
             } catch (\Exception $e) {
-                \Log::error("Gagal kirim WA Skor Bupati: " . $e->getMessage());
+                Log::error("Gagal kirim WA Skor Bupati: " . $e->getMessage());
             }
         }
 
@@ -95,24 +106,26 @@ class SkoringService
      */
     public function hitungSkorTertimbangOpd(int $opdId, int $bulan, int $tahun): array
     {
-        $indikators = Indikator::with(['tahunAnggaran', 'skorings' => fn ($q) => $q->where('bulan', $bulan)->where('tahun', $tahun)])
+        $indikators = Indikator::with(['tahunAnggaran', 'skorings' => fn($q) => $q->where('bulan', $bulan)->where('tahun', $tahun)])
             ->where('opd_id', $opdId)
             ->disetujui()
             ->where('category', 'utama')
-            ->whereHas('tahunAnggaran', fn ($q) => $q->where('tahun', $tahun))
+            ->whereHas('tahunAnggaran', fn($q) => $q->where('tahun', $tahun))
             ->get();
 
         $kerjasamas = IndikatorKerjasama::with([
-            'indikator' => fn ($q) => $q->with([
-                'skorings' => fn ($sq) => $sq->where('bulan', $bulan)->where('tahun', $tahun),
+            'indikator' => fn($q) => $q->with([
+                'skorings' => fn($sq) => $sq->where('bulan', $bulan)->where('tahun', $tahun),
             ]),
         ])
             ->where('opd_id', $opdId)
             ->disetujui()
-            ->whereHas('indikator', fn ($q) => $q
-                ->disetujui()
-                ->where('category', 'utama')
-                ->whereHas('tahunAnggaran', fn ($tq) => $tq->where('tahun', $tahun))
+            ->whereHas(
+                'indikator',
+                fn($q) => $q
+                    ->disetujui()
+                    ->where('category', 'utama')
+                    ->whereHas('tahunAnggaran', fn($tq) => $tq->where('tahun', $tahun))
             )
             ->get();
 
@@ -158,7 +171,7 @@ class SkoringService
                 if ($filterOpdId) {
                     $opd = \App\Models\Opd::find($filterOpdId);
                     if ($opd) {
-                        match($opd->type) {
+                        match ($opd->type) {
                             'sekda' => $q->where('sekda_id', $opd->id),
                             'asisten' => $q->where('asisten_id', $opd->id),
                             'opd' => $q->where('opd_id', $opd->id),
@@ -183,7 +196,7 @@ class SkoringService
                 if ($filterOpdId) {
                     $opd = \App\Models\Opd::find($filterOpdId);
                     if ($opd) {
-                        match($opd->type) {
+                        match ($opd->type) {
                             'sekda' => $q->where('sekda_id', $opd->id),
                             'asisten' => $q->where('asisten_id', $opd->id),
                             'opd' => $q->where('opd_id', $opd->id),
@@ -207,7 +220,7 @@ class SkoringService
                 if ($filterOpdId) {
                     $opd = \App\Models\Opd::find($filterOpdId);
                     if ($opd) {
-                        match($opd->type) {
+                        match ($opd->type) {
                             'sekda' => $q->where('sekda_id', $opd->id),
                             'asisten' => $q->where('asisten_id', $opd->id),
                             'opd' => $q->where('opd_id', $opd->id),
@@ -225,14 +238,14 @@ class SkoringService
         return Indikator::with([
             'opd',
             'bidang',
-            'realisasi' => fn ($q) => $q->where('bulan', $bulan),
+            'realisasi' => fn($q) => $q->where('bulan', $bulan),
         ])
             ->where('category', 'utama')
             ->disetujui()
             ->when($filterOpdId, function ($q) use ($filterOpdId) {
                 $opd = \App\Models\Opd::find($filterOpdId);
                 if ($opd) {
-                    match($opd->type) {
+                    match ($opd->type) {
                         'sekda' => $q->where('sekda_id', $opd->id),
                         'asisten' => $q->where('asisten_id', $opd->id),
                         'opd' => $q->where('opd_id', $opd->id),
@@ -241,9 +254,9 @@ class SkoringService
                     };
                 }
             })
-            ->whereHas('realisasi', fn ($q) => $q->where('bulan', $bulan))
-            ->whereHas('tahunAnggaran', fn ($q) => $q->where('tahun', $tahun))
-            ->whereDoesntHave('skorings', fn ($q) => $q->where('bulan', $bulan)->where('tahun', $tahun))
+            ->whereHas('realisasi', fn($q) => $q->where('bulan', $bulan))
+            ->whereHas('tahunAnggaran', fn($q) => $q->where('tahun', $tahun))
+            ->whereDoesntHave('skorings', fn($q) => $q->where('bulan', $bulan)->where('tahun', $tahun))
             ->orderBy('nama')
             ->get();
     }
@@ -258,7 +271,7 @@ class SkoringService
                 if ($filterOpdId) {
                     $opd = \App\Models\Opd::find($filterOpdId);
                     if ($opd) {
-                        match($opd->type) {
+                        match ($opd->type) {
                             'sekda' => $q->where('sekda_id', $opd->id),
                             'asisten' => $q->where('asisten_id', $opd->id),
                             'opd' => $q->where('opd_id', $opd->id),

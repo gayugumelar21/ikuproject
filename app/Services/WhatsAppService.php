@@ -77,7 +77,7 @@ class WhatsAppService
     /**
      * Kirim pesan teks ke nomor WA via Fonnte
      */
-    public function sendMessage(string $to, string $message): bool
+    public function sendMessage(string $to, string $message, ?string $mediaUrl = null): bool
     {
         if (empty($this->token)) {
             Log::warning('Fonnte token is missing.');
@@ -87,12 +87,18 @@ class WhatsAppService
         $to = $this->normalizePhone($to);
 
         try {
-            $response = Http::withHeaders([
-                'Authorization' => $this->token,
-            ])->post($this->baseUrl, [
+            $payload = [
                 'target'  => $to,
                 'message' => $message,
-            ]);
+            ];
+
+            if ($mediaUrl) {
+                $payload['url'] = $mediaUrl;
+            }
+
+            $response = Http::asForm()->withHeaders([
+                'Authorization' => $this->token,
+            ])->post($this->baseUrl, $payload);
 
             $body = $response->json();
 
