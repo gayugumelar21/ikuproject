@@ -1,67 +1,87 @@
-<x-layouts::auth :title="__('Register')">
+<x-layouts::auth :title="__('Daftar')">
     <div class="flex flex-col gap-6">
-        <x-auth-header :title="__('Create an account')" :description="__('Enter your details below to create your account')" />
+        <x-auth-header :title="__('Buat Akun')" :description="__('Masukkan detail di bawah ini untuk membuat akun')" />
 
-        <!-- Session Status -->
         <x-auth-session-status class="text-center" :status="session('status')" />
 
         <form method="POST" action="{{ route('register.store') }}" class="flex flex-col gap-6">
             @csrf
-            <!-- Name -->
-            <flux:input
-                name="name"
-                :label="__('Name')"
-                :value="old('name')"
-                type="text"
-                required
-                autofocus
-                autocomplete="name"
-                :placeholder="__('Full name')"
-            />
 
-            <!-- Email Address -->
-            <flux:input
-                name="email"
-                :label="__('Email address')"
-                :value="old('email')"
-                type="email"
-                required
-                autocomplete="email"
-                placeholder="email@example.com"
-            />
+            <flux:field>
+                <flux:label>Nama Lengkap</flux:label>
+                <flux:input
+                    name="name"
+                    :value="old('name')"
+                    type="text"
+                    required
+                    autofocus
+                    autocomplete="name"
+                    placeholder="Nama lengkap"
+                />
+                <flux:error name="name" />
+            </flux:field>
 
-            <!-- Password -->
-            <flux:input
-                name="password"
-                :label="__('Password')"
-                type="password"
-                required
-                autocomplete="new-password"
-                :placeholder="__('Password')"
-                viewable
-            />
+            <flux:field>
+                <flux:label>Username</flux:label>
+                <flux:input
+                    name="username"
+                    :value="old('username')"
+                    type="text"
+                    required
+                    autocomplete="username"
+                    placeholder="Contoh: john_doe"
+                />
+                <flux:description>Hanya huruf, angka, dan underscore (_). Min. 3 karakter.</flux:description>
+                <flux:error name="username" />
+            </flux:field>
 
-            <!-- Confirm Password -->
-            <flux:input
-                name="password_confirmation"
-                :label="__('Confirm password')"
-                type="password"
-                required
-                autocomplete="new-password"
-                :placeholder="__('Confirm password')"
-                viewable
-            />
+            <flux:field>
+                <flux:label>Alamat Email</flux:label>
+                <flux:input
+                    name="email"
+                    :value="old('email')"
+                    type="email"
+                    required
+                    autocomplete="email"
+                    placeholder="email@example.com"
+                />
+                <flux:error name="email" />
+            </flux:field>
 
-            <div class="flex items-center justify-end">
-                <flux:button type="submit" variant="primary" class="w-full" data-test="register-user-button">
-                    {{ __('Create account') }}
-                </flux:button>
-            </div>
+            <flux:field>
+                <flux:label>Kata Sandi</flux:label>
+                <flux:input
+                    name="password"
+                    type="password"
+                    required
+                    autocomplete="new-password"
+                    placeholder="Kata sandi"
+                    viewable
+                />
+                <flux:error name="password" />
+            </flux:field>
+
+            <flux:field>
+                <flux:label>Konfirmasi Kata Sandi</flux:label>
+                <flux:input
+                    name="password_confirmation"
+                    type="password"
+                    required
+                    autocomplete="new-password"
+                    placeholder="Ulangi kata sandi"
+                    viewable
+                />
+                <flux:error name="password_confirmation" />
+            </flux:field>
+
+            <flux:button type="submit" variant="primary" class="w-full">
+                Buat Akun
+            </flux:button>
         </form>
 
-        <div class="space-x-1 rtl:space-x-reverse text-center text-sm text-zinc-600 dark:text-zinc-400">
-            <span>{{ __('Already have an account?') }}</span>
-            <flux:link :href="route('login')" wire:navigate>{{ __('Log in') }}</flux:link>
+        <div class="text-center text-sm text-zinc-600 dark:text-zinc-400">
+            <span>Sudah punya akun?</span>
+            <flux:link :href="route('login')" wire:navigate>Masuk</flux:link>
         </div>
     </div>
 </x-layouts::auth>
