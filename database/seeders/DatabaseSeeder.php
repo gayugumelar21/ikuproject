@@ -16,6 +16,11 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RolePermissionSeeder::class,
             SettingsSeeder::class,
+            // Dummy data: urutan penting! Kominfo membuat SEKDA & Asisten II,
+            // Disdik membuat Asisten I, baru kemudian Asisten1 yang membuat Kabag.
+            DummyKominfoSeeder::class,
+            DummyDisdikKerjasamaSeeder::class,
+            DummyAsisten1Seeder::class,
         ]);
 
         $adminUser = User::factory()->create([

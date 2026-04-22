@@ -30,7 +30,23 @@ class RekapCapaianService
 
     public function hitung(int $tahunAnggaranId, int $bulan): void
     {
-        $opds = Opd::all();
+        // Ambil semua OPD/unit yang memiliki setidaknya satu IKU terkait
+        $relevantOpdIds = Indikator::where('tahun_anggaran_id', $tahunAnggaranId)
+            ->where('category', 'utama')
+            ->where(fn ($q) => $q
+                ->whereNotNull('opd_id')
+                ->orWhereNotNull('asisten_id')
+                ->orWhereNotNull('sekda_id')
+                ->orWhereNotNull('kabag_id')
+            )
+            ->get(['opd_id', 'asisten_id', 'sekda_id', 'kabag_id'])
+            ->flatMap(fn ($i) => array_filter([
+                $i->opd_id, $i->asisten_id, $i->sekda_id, $i->kabag_id,
+            ]))
+            ->unique()
+            ->values();
+
+        $opds = Opd::whereIn('id', $relevantOpdIds)->get();
 
         foreach ($opds as $opd) {
             $this->hitungPerOpd($opd, $tahunAnggaranId, $bulan);
@@ -40,6 +56,7 @@ class RekapCapaianService
     private function hitungPerOpd(Opd $opd, int $tahunAnggaranId, int $bulan): void
     {
         $indikatorIds = Indikator::where('tahun_anggaran_id', $tahunAnggaranId)
+            ->where('category', 'utama')
             ->where(fn ($q) => $q
                 ->where('opd_id', $opd->id)
                 ->orWhere('bidang_id', $opd->id)

@@ -3,6 +3,7 @@
 use App\Livewire\Forms\PersetujuanForm;
 use App\Models\Persetujuan;
 use App\Services\PersetujuanService;
+use Flux\Flux;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -28,14 +29,18 @@ new class extends Component
 
     public function getLevelForCurrentUser(): string
     {
-        $role = auth()->user()->getRoleNames()->first() ?? '';
+        $roles = auth()->user()->getRoleNames();
 
-        return match ($role) {
-            'kabag' => 'kabag',
+        if ($roles->contains('admin_super')) {
+            return $this->filterLevel ?: 'kabag';
+        }
+
+        return match ($roles->first() ?? '') {
+            'kabag'   => 'kabag',
             'asisten' => 'asisten',
-            'sekda' => 'sekda',
-            'bupati' => 'bupati',
-            default => 'sekda',
+            'sekda'   => 'sekda',
+            'bupati'  => 'bupati',
+            default   => '',
         };
     }
 
@@ -46,15 +51,23 @@ new class extends Component
     }
 
     #[Computed]
+    public function isApprover(): bool
+    {
+        return $this->getLevelForCurrentUser() !== '';
+    }
+
+    #[Computed]
     public function persetujuans(): \Illuminate\Database\Eloquent\Collection
     {
-        $level = $this->isAdminSuper ? $this->filterLevel : $this->getLevelForCurrentUser();
+        $level = $this->getLevelForCurrentUser();
 
         if (! $level) {
             return collect();
         }
 
-        return $this->service->getPending($level);
+        $userOpdId = $this->isAdminSuper ? null : auth()->user()->opd_id;
+
+        return $this->service->getPending($level, $userOpdId);
     }
 
     #[Computed]
@@ -120,6 +133,14 @@ new class extends Component
         <flux:heading size="xl">Persetujuan Indikator</flux:heading>
         <flux:text class="mt-1 text-zinc-500">Kelola persetujuan indikator kinerja berdasarkan level jabatan.</flux:text>
     </div>
+
+    {{-- Info untuk non-approver --}}
+    @if (! $this->isApprover)
+        <flux:callout icon="information-circle" color="blue" class="mb-6">
+            <flux:callout.heading>Halaman ini hanya untuk pejabat yang berwenang menyetujui indikator.</flux:callout.heading>
+            <flux:callout.text>Role Anda tidak memiliki kewenangan persetujuan. Gunakan halaman Indikator untuk mengajukan indikator.</flux:callout.text>
+        </flux:callout>
+    @endif
 
     {{-- Filter Level (hanya untuk admin_super) --}}
     @if ($this->isAdminSuper)

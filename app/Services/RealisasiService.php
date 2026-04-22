@@ -21,6 +21,7 @@ class RealisasiService
             ->whereHas('indikator', fn ($q) => $q
                 ->where('opd_id', $opdId)
                 ->where('tahun_anggaran_id', $tahunAnggaranId)
+                ->where('category', 'utama')
             )
             ->orderBy('bulan')
             ->get();

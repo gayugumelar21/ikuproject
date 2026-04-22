@@ -3,6 +3,7 @@
 use App\Models\IkuSkoring;
 use App\Models\Indikator;
 use App\Models\MonthlySummary;
+use App\Models\Opd;
 use App\Models\Setting;
 use App\Services\MonthlySummaryService;
 use Livewire\Attributes\Computed;
@@ -14,6 +15,9 @@ new #[Title('Dashboard IKU')] class extends Component
 {
     public int $bulan;
     public int $tahun;
+
+    /** null = semua | opd-id = filter ke unit tertentu */
+    public ?int $filterUnitId = null;
 
     private MonthlySummaryService $summaryService;
 
@@ -28,20 +32,75 @@ new #[Title('Dashboard IKU')] class extends Component
         $this->tahun = (int) (Setting::get('active_year') ?? now()->year);
     }
 
+    /** Daftar unit level atas: Sekda + Asisten-asisten */
+    #[Computed]
+    public function unitOptions(): \Illuminate\Support\Collection
+    {
+        return Opd::whereIn('type', ['sekda', 'asisten'])->orderBy('type')->orderBy('name')->get();
+    }
+
+    /**
+     * Summary OPD yang ditampilkan.
+     * - filterUnitId null  → Sekda, Asisten I/II/III, lalu OPD/Bidang level dinas urut abjad
+     * - filterUnitId = id  → Unit itu sendiri di baris 1, diikuti OPD bawahannya
+     */
     #[Computed]
     public function summaries(): \Illuminate\Support\Collection
     {
-        return MonthlySummary::with('opd')
+        $base = MonthlySummary::with('opd')
             ->where('bulan', $this->bulan)
-            ->where('tahun', $this->tahun)
-            ->orderByDesc('skor_total')
+            ->where('tahun', $this->tahun);
+
+        if ($this->filterUnitId) {
+            // Baris pertama: unit itu sendiri
+            $unitSummary = (clone $base)
+                ->where('opd_id', $this->filterUnitId)
+                ->get();
+
+            // Cari OPD yang parent_id-nya = unit terpilih (anak langsung)
+            $childIds = Opd::where('parent_id', $this->filterUnitId)->pluck('id');
+
+            // Cari juga OPD yang opd_id-nya bukan asisten/sekda tapi
+            // punya indikator dengan asisten_id = unit terpilih
+            $linkedOpdIds = Indikator::where('asisten_id', $this->filterUnitId)
+                ->whereNotNull('opd_id')
+                ->pluck('opd_id')
+                ->merge($childIds)
+                ->unique();
+
+            $childSummaries = (clone $base)
+                ->whereIn('opd_id', $linkedOpdIds)
+                ->whereHas('opd', fn ($q) => $q->whereIn('type', ['opd', 'kabag']))
+                ->orderBy(Opd::select('name')->whereColumn('opds.id', 'monthly_summaries.opd_id')->limit(1))
+                ->get();
+
+            return $unitSummary->merge($childSummaries);
+        }
+
+        // Default: Sekda & Asisten di atas, kemudian OPD/Dinas urut abjad
+        $unitRows = (clone $base)
+            ->whereHas('opd', fn ($q) => $q->whereIn('type', ['sekda', 'asisten']))
+            ->get()
+            ->sortBy(fn ($s) => match ($s->opd?->type) {
+                'sekda'   => '0_'.$s->opd->name,
+                'asisten' => '1_'.$s->opd->name,
+                default   => '9_'.$s->opd->name,
+            });
+
+        $opdRows = (clone $base)
+            ->whereHas('opd', fn ($q) => $q->where('type', 'opd'))
+            ->orderBy(Opd::select('name')->whereColumn('opds.id', 'monthly_summaries.opd_id')->limit(1))
             ->get();
+
+        return $unitRows->merge($opdRows)->values();
     }
 
     #[Computed]
     public function totalIndikator(): int
     {
-        return Indikator::where('status', 'disetujui')->count();
+        return Indikator::where('status', 'disetujui')
+            ->where('category', 'utama')
+            ->count();
     }
 
     #[Computed]
@@ -50,6 +109,7 @@ new #[Title('Dashboard IKU')] class extends Component
         return IkuSkoring::where('status', 'ai_done')
             ->where('bulan', $this->bulan)
             ->where('tahun', $this->tahun)
+            ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
             ->count();
     }
 
@@ -59,6 +119,7 @@ new #[Title('Dashboard IKU')] class extends Component
         return IkuSkoring::where('status', 'final')
             ->where('bulan', $this->bulan)
             ->where('tahun', $this->tahun)
+            ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
             ->count();
     }
 
@@ -69,9 +130,17 @@ new #[Title('Dashboard IKU')] class extends Component
             ->where('status', 'ai_done')
             ->where('bulan', $this->bulan)
             ->where('tahun', $this->tahun)
+            ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
             ->latest()
             ->limit(5)
             ->get();
+    }
+
+    /** Unit yang sedang aktif difilter (untuk header) */
+    #[Computed]
+    public function selectedUnit(): ?Opd
+    {
+        return $this->filterUnitId ? Opd::find($this->filterUnitId) : null;
     }
 
     public function updatedBulan(): void
@@ -82,6 +151,11 @@ new #[Title('Dashboard IKU')] class extends Component
     public function updatedTahun(): void
     {
         unset($this->summaries, $this->pendingTaCount, $this->sudahFinalCount, $this->recentPendingSkoring);
+    }
+
+    public function updatedFilterUnitId(): void
+    {
+        unset($this->summaries, $this->selectedUnit);
     }
 
     public function hitungUlang(): void
@@ -95,28 +169,55 @@ new #[Title('Dashboard IKU')] class extends Component
     {
         return ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][$b];
     }
+
+    private function labelUnit(?Opd $opd): string
+    {
+        if (! $opd) return 'Semua OPD';
+        return $opd->name;
+    }
 };
 ?>
 
 <div>
     {{-- Header & Filter --}}
-    <div class="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex flex-col gap-4 mb-6 sm:flex-row sm:items-start sm:justify-between">
         <div>
             <flux:heading size="xl">Dashboard Monitoring IKU</flux:heading>
             <flux:text class="text-zinc-500 mt-1">
-                Rekap skor kinerja OPD bulan {{ $this->namaBulan($bulan) }} {{ $tahun }}
+                Rekap skor kinerja
+                @if($this->selectedUnit)
+                    <span class="font-semibold text-blue-600 dark:text-blue-400">{{ $this->selectedUnit->name }}</span>
+                @else
+                    seluruh OPD
+                @endif
+                — {{ $this->namaBulan($bulan) }} {{ $tahun }}
             </flux:text>
         </div>
+
         <div class="flex items-center gap-2 flex-wrap">
+            {{-- Filter Unit --}}
+            <flux:select wire:model.live="filterUnitId" class="w-52" placeholder="Semua OPD">
+                <flux:select.option value="">— Semua OPD —</flux:select.option>
+                @foreach($this->unitOptions as $unit)
+                    <flux:select.option value="{{ $unit->id }}">
+                        {{ $unit->type === 'sekda' ? '🏛 ' : '📋 ' }}{{ $unit->name }}
+                    </flux:select.option>
+                @endforeach
+            </flux:select>
+
+            {{-- Filter Bulan --}}
             <flux:select wire:model.live="bulan" class="w-36">
                 @foreach(range(1,12) as $b)
                     <flux:select.option value="{{ $b }}">{{ $this->namaBulan($b) }}</flux:select.option>
                 @endforeach
             </flux:select>
+
             <flux:input type="number" wire:model.live="tahun" class="w-24" min="2020" max="2100" />
+
             <flux:button icon="arrow-path" wire:click="hitungUlang" wire:loading.attr="disabled">
                 Hitung Ulang
             </flux:button>
+
             <flux:button
                 icon="arrow-down-tray"
                 variant="ghost"
@@ -125,6 +226,30 @@ new #[Title('Dashboard IKU')] class extends Component
                 Export CSV
             </flux:button>
         </div>
+    </div>
+
+    {{-- Filter Unit Pills --}}
+    <div class="flex items-center gap-2 flex-wrap mb-6">
+        <button
+            wire:click="$set('filterUnitId', null)"
+            class="px-3 py-1.5 rounded-full text-xs font-medium transition-all
+                {{ $filterUnitId === null
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700' }}"
+        >
+            Semua OPD
+        </button>
+        @foreach($this->unitOptions as $unit)
+            <button
+                wire:click="$set('filterUnitId', {{ $unit->id }})"
+                class="px-3 py-1.5 rounded-full text-xs font-medium transition-all
+                    {{ (int)$filterUnitId === $unit->id
+                        ? 'bg-blue-600 text-white shadow'
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700' }}"
+            >
+                {{ $unit->type === 'sekda' ? '🏛' : '📋' }} {{ Str::limit($unit->name, 24) }}
+            </button>
+        @endforeach
     </div>
 
     {{-- Summary Cards --}}
@@ -172,16 +297,30 @@ new #[Title('Dashboard IKU')] class extends Component
                 </div>
                 <div>
                     <div class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{{ $this->summaries->count() }}</div>
-                    <div class="text-xs text-zinc-500">OPD Terhitung</div>
+                    <div class="text-xs text-zinc-500">Unit Terhitung</div>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- Tabel Rekap OPD --}}
+    {{-- Tabel Rekap --}}
     <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden mb-6">
         <div class="bg-zinc-50 dark:bg-zinc-800 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
-            <flux:heading size="sm">Rekap Skor OPD — {{ $this->namaBulan($bulan) }} {{ $tahun }}</flux:heading>
+            <div>
+                <flux:heading size="sm">
+                    @if($this->selectedUnit)
+                        Overview: {{ $this->selectedUnit->name }}
+                    @else
+                        Rekap Skor OPD
+                    @endif
+                    — {{ $this->namaBulan($bulan) }} {{ $tahun }}
+                </flux:heading>
+                @if($this->selectedUnit)
+                    <p class="text-xs text-zinc-400 mt-0.5">
+                        Baris pertama = skor agregat unit, baris berikutnya = OPD/bagian di bawahnya
+                    </p>
+                @endif
+            </div>
             <flux:button
                 size="sm"
                 variant="ghost"
@@ -197,7 +336,7 @@ new #[Title('Dashboard IKU')] class extends Component
                 <flux:callout icon="information-circle" color="blue">
                     <flux:callout.heading>Data rekap belum tersedia</flux:callout.heading>
                     <flux:callout.text>
-                        Klik tombol <strong>Hitung Ulang</strong> untuk menghitung rekap skor OPD bulan ini.
+                        Klik tombol <strong>Hitung Ulang</strong> untuk menghitung rekap skor bulan ini.
                     </flux:callout.text>
                 </flux:callout>
             </div>
@@ -206,7 +345,7 @@ new #[Title('Dashboard IKU')] class extends Component
                 <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-xs">
                     <tr>
                         <th class="px-4 py-3 text-left font-medium">#</th>
-                        <th class="px-4 py-3 text-left font-medium">OPD</th>
+                        <th class="px-4 py-3 text-left font-medium">Unit / OPD</th>
                         <th class="px-4 py-3 text-center font-medium">Skor Utama</th>
                         <th class="px-4 py-3 text-center font-medium">Skor Kerjasama</th>
                         <th class="px-4 py-3 text-center font-medium">Skor Total</th>
@@ -217,15 +356,48 @@ new #[Title('Dashboard IKU')] class extends Component
                 <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                     @foreach($this->summaries as $i => $summary)
                         @php
-                            $skor = $summary->skor_total;
-                            $color = $summary->getBadgeColor();
-                            $pct = $skor ? min(100, ($skor / 10) * 100) : 0;
+                            $skor        = $summary->skor_total;
+                            $color       = $summary->getBadgeColor();
+                            $pct         = $skor ? min(100, ($skor / 10) * 100) : 0;
+                            $isTopUnit   = $filterUnitId && $i === 0;
+                            $opdType     = $summary->opd?->type;
+                            $isUnitLevel = in_array($opdType, ['sekda', 'asisten', 'kabag']);
                         @endphp
-                        <tr class="bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                            <td class="px-4 py-3 text-zinc-500 text-xs">{{ $i + 1 }}</td>
+                        <tr
+                            wire:key="dash-{{ $summary->id }}"
+                            class="
+                                {{ $isTopUnit
+                                    ? 'bg-blue-50 dark:bg-blue-950/40 border-l-4 border-l-blue-500'
+                                    : ($isUnitLevel
+                                        ? 'bg-zinc-50/70 dark:bg-zinc-800/50'
+                                        : 'bg-white dark:bg-zinc-900') }}
+                                hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors
+                            "
+                        >
+                            <td class="px-4 py-3 text-zinc-500 text-xs">
+                                @if($isTopUnit)
+                                    <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold">★</span>
+                                @else
+                                    {{ $i + 1 }}
+                                @endif
+                            </td>
                             <td class="px-4 py-3">
-                                <div class="font-medium text-zinc-900 dark:text-zinc-100 text-sm">
-                                    {{ $summary->opd?->name ?? '-' }}
+                                <div class="flex items-center gap-2">
+                                    @if($isTopUnit)
+                                        <span class="text-blue-600 text-base">🏛</span>
+                                    @elseif($isUnitLevel)
+                                        <span class="text-zinc-400 text-xs">📋</span>
+                                    @endif
+                                    <div>
+                                        <div class="font-{{ $isTopUnit ? 'bold' : 'medium' }} text-zinc-900 dark:text-zinc-100 text-sm {{ $isTopUnit ? 'text-blue-700 dark:text-blue-300' : '' }}">
+                                            {{ $summary->opd?->name ?? '-' }}
+                                        </div>
+                                        @if($isTopUnit)
+                                            <div class="text-xs text-blue-500 dark:text-blue-400">Skor Agregat Unit</div>
+                                        @elseif($isUnitLevel)
+                                            <div class="text-xs text-zinc-400">{{ ucfirst($opdType) }}</div>
+                                        @endif
+                                    </div>
                                 </div>
                             </td>
                             <td class="px-4 py-3 text-center">

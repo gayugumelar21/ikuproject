@@ -26,6 +26,7 @@ class IkuSendReminders extends Command
 
         $belumInput = Indikator::with(['owner'])
             ->where('status', 'disetujui')
+            ->where('category', 'utama')
             ->whereNotExists(fn ($q) => $q->from('realisasi')
                 ->whereColumn('realisasi.indikator_id', 'indikators.id')
                 ->where('realisasi.bulan', $bulan))
@@ -41,7 +42,7 @@ class IkuSendReminders extends Command
             $pesan = "*Reminder IKU*\nYth. {$user->name},\n"
                 ."Belum ada input realisasi bulan {$bulan}/{$tahun} untuk:\n"
                 ."_{$indikator->nama}_\n\n"
-                ."Mohon segera diinput. Terima kasih.";
+                .'Mohon segera diinput. Terima kasih.';
 
             SendWhatsAppMessage::dispatch($user->phone_wa, $pesan, 'reminder', $user->id);
             $count++;

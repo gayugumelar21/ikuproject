@@ -38,6 +38,7 @@ new class extends Component
         }
 
         return Indikator::where('tahun_anggaran_id', $this->tahunAnggaranId)
+            ->where('category', 'utama')
             ->orderBy('nama')
             ->get();
     }

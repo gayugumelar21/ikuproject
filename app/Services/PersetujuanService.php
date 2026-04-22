@@ -9,13 +9,26 @@ use Illuminate\Support\Facades\Auth;
 
 class PersetujuanService
 {
-    public function getPending(string $level): Collection
+    public function getPending(string $level, ?int $userOpdId = null): Collection
     {
-        return Persetujuan::with(['indikator.opd', 'user'])
+        $query = Persetujuan::with(['indikator.opd', 'user'])
             ->where('level', $level)
-            ->where('status', 'pending')
-            ->latest()
-            ->get();
+            ->where('status', 'pending');
+
+        if ($userOpdId) {
+            $column = match ($level) {
+                'kabag' => 'kabag_id',
+                'asisten' => 'asisten_id',
+                'sekda' => 'sekda_id',
+                default => null,
+            };
+
+            if ($column) {
+                $query->whereHas('indikator', fn ($q) => $q->where($column, $userOpdId));
+            }
+        }
+
+        return $query->latest()->get();
     }
 
     public function getByIndikator(int $indikatorId): Collection
@@ -41,9 +54,26 @@ class PersetujuanService
         $persetujuan->update([
             'status' => 'disetujui',
             'catatan' => $catatan,
+            'user_id' => Auth::id(),
         ]);
 
-        $this->updateStatusIndikator($persetujuan->indikator_id);
+        $indikator = $persetujuan->indikator;
+        if (! $indikator) {
+            return;
+        }
+
+        $nextLevel = $this->nextApprovalLevel($persetujuan->level, $indikator);
+
+        if ($nextLevel) {
+            Persetujuan::create([
+                'indikator_id' => $indikator->id,
+                'user_id' => Auth::id(),
+                'level' => $nextLevel,
+                'status' => 'pending',
+            ]);
+        } else {
+            $indikator->update(['status' => 'disetujui']);
+        }
     }
 
     public function tolak(Persetujuan $persetujuan, string $catatan): void
@@ -51,19 +81,18 @@ class PersetujuanService
         $persetujuan->update([
             'status' => 'ditolak',
             'catatan' => $catatan,
+            'user_id' => Auth::id(),
         ]);
 
         Indikator::find($persetujuan->indikator_id)?->update(['status' => 'ditolak']);
     }
 
-    private function updateStatusIndikator(int $indikatorId): void
+    private function nextApprovalLevel(string $currentLevel, Indikator $indikator): ?string
     {
-        $semuaDisetujui = Persetujuan::where('indikator_id', $indikatorId)
-            ->where('status', '!=', 'disetujui')
-            ->doesntExist();
-
-        if ($semuaDisetujui) {
-            Indikator::find($indikatorId)?->update(['status' => 'disetujui']);
-        }
+        return match ($currentLevel) {
+            'kabag' => $indikator->asisten_id ? 'asisten' : 'sekda',
+            'asisten' => 'sekda',
+            default => null,
+        };
     }
 }

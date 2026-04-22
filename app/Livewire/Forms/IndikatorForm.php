@@ -46,7 +46,7 @@ class IndikatorForm extends Form
     #[Validate('nullable|string|max:50')]
     public string $satuan = '';
 
-    #[Validate('required|in:utama,kerjasama')]
+    #[Validate('required|in:utama')]
     public string $category = 'utama';
 
     #[Validate('required|in:kuantitatif,kualitatif')]
@@ -82,22 +82,22 @@ class IndikatorForm extends Form
     public function rules(): array
     {
         return [
-            'tahun_anggaran_id'   => ['required', 'exists:tahun_anggaran,id'],
-            'sekda_id'            => ['required', 'exists:opds,id'],
-            'kabag_id'            => ['nullable', 'exists:opds,id'],
-            'asisten_id'          => ['nullable', 'exists:opds,id'],
-            'opd_id'              => ['nullable', 'exists:opds,id'],
-            'bidang_id'           => ['nullable', 'exists:opds,id'],
+            'tahun_anggaran_id' => ['required', 'exists:tahun_anggaran,id'],
+            'sekda_id' => ['required', 'exists:opds,id'],
+            'kabag_id' => ['nullable', 'exists:opds,id'],
+            'asisten_id' => ['nullable', 'exists:opds,id'],
+            'opd_id' => ['nullable', 'exists:opds,id'],
+            'bidang_id' => ['nullable', 'exists:opds,id'],
             'parent_indikator_id' => ['nullable', 'exists:indikators,id'],
             'source_indikator_id' => ['nullable', 'exists:indikators,id'],
-            'owner_user_id'       => ['nullable', 'exists:users,id'],
-            'nama'                => ['required', 'string', 'max:255'],
-            'definisi'            => ['nullable', 'string'],
-            'satuan'              => ['nullable', 'string', 'max:50'],
-            'category'            => ['required', 'in:utama,kerjasama'],
-            'measurement_type'    => ['required', 'in:kuantitatif,kualitatif'],
-            'target'              => ['required_if:measurement_type,kuantitatif', 'nullable', 'numeric', 'min:0'],
-            'bobot'               => ['required', 'numeric', 'min:0', 'max:100'],
+            'owner_user_id' => ['nullable', 'exists:users,id'],
+            'nama' => ['required', 'string', 'max:255'],
+            'definisi' => ['nullable', 'string'],
+            'satuan' => ['nullable', 'string', 'max:50'],
+            'category' => ['required', 'in:utama'],
+            'measurement_type' => ['required', 'in:kuantitatif,kualitatif'],
+            'target' => ['required_if:measurement_type,kuantitatif', 'nullable', 'numeric', 'min:0'],
+            'bobot' => ['required', 'numeric', 'min:0', 'max:100'],
         ];
     }
 }

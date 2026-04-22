@@ -27,14 +27,14 @@ class DummyKominfoSeeder extends Seeder
             ['name' => 'Sekretariat Daerah', 'type' => 'sekda', 'parent_id' => null]
         );
 
-        $asisten3 = Opd::firstOrCreate(
-            ['code' => 'ASISTEN-III'],
-            ['name' => 'Asisten III - Administrasi Umum', 'type' => 'asisten', 'parent_id' => $sekda->id]
+        $asisten2 = Opd::firstOrCreate(
+            ['code' => 'ASISTEN-II'],
+            ['name' => 'Asisten II - Perekonomian dan Pembangunan', 'type' => 'asisten', 'parent_id' => $sekda->id]
         );
 
         $kominfo = Opd::firstOrCreate(
             ['code' => 'DISKOMINFO'],
-            ['name' => 'Dinas Komunikasi dan Informatika', 'type' => 'opd', 'parent_id' => $asisten3->id]
+            ['name' => 'Dinas Komunikasi dan Informatika', 'type' => 'opd', 'parent_id' => $asisten2->id]
         );
 
         $bidangIkp = Opd::firstOrCreate(
@@ -197,7 +197,7 @@ class DummyKominfoSeeder extends Seeder
                 [
                     'tahun_anggaran_id' => $tahun->id,
                     'sekda_id' => $sekda->id,
-                    'asisten_id' => $asisten3->id,
+                    'asisten_id' => $asisten2->id,
                     'opd_id' => $kominfo->id,
                     'bidang_id' => $bidangId,
                     'kabag_id' => null,

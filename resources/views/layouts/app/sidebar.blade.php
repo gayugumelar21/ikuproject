@@ -77,6 +77,15 @@
                     </flux:sidebar.item>
 
                     <flux:sidebar.item
+                        icon="link"
+                        :href="route('kerjasama.index')"
+                        :current="request()->routeIs('kerjasama.index')"
+                        wire:navigate
+                    >
+                        {{ __('IKU Kerjasama') }}
+                    </flux:sidebar.item>
+
+                    <flux:sidebar.item
                         icon="table-cells"
                         :href="route('target-indikator.index')"
                         :current="request()->routeIs('target-indikator.index')"

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use App\Livewire\Forms\IndikatorForm;
 use App\Models\Indikator;
@@ -43,9 +43,9 @@ new class extends Component
             return collect();
         }
 
-        return Indikator::with(['sekda', 'asisten', 'kabag', 'opd', 'bidang', 'dibuatOleh', 'owner', 'sourceIndikator.opd', 'kerjasamas.opd'])
+        return Indikator::with(['sekda', 'asisten', 'kabag', 'opd', 'bidang', 'dibuatOleh', 'owner', 'kerjasamas.opd'])
             ->where('tahun_anggaran_id', $this->filterTahunAnggaranId)
-            ->orderBy('category')
+            ->where('category', 'utama')
             ->orderBy('nama')
             ->get();
     }
@@ -98,21 +98,6 @@ new class extends Component
         return User::orderBy('name')->get();
     }
 
-    #[Computed]
-    public function indikatorSumberOptions(): \Illuminate\Support\Collection
-    {
-        if (! $this->filterTahunAnggaranId) {
-            return collect();
-        }
-
-        return Indikator::where('tahun_anggaran_id', $this->filterTahunAnggaranId)
-            ->where('category', 'utama')
-            ->where('status', 'disetujui')
-            ->when($this->form->indikatorId, fn ($q) => $q->where('id', '!=', $this->form->indikatorId))
-            ->orderBy('nama')
-            ->get();
-    }
-
     public function updatedFormSekdaId(): void
     {
         $this->form->asisten_id = null;
@@ -140,6 +125,8 @@ new class extends Component
         $this->isEditing = false;
         $this->form->reset();
         $this->form->tahun_anggaran_id = $this->filterTahunAnggaranId;
+        $this->form->category = 'utama';
+        $this->form->source_indikator_id = null;
         Flux::modal('indikator-modal')->show();
     }
 
@@ -162,6 +149,8 @@ new class extends Component
         }
 
         $data = $this->form->validate();
+        $data['category'] = 'utama';
+        $data['source_indikator_id'] = null;
 
         if ($this->isEditing) {
             $indikator = Indikator::findOrFail($this->form->indikatorId);
@@ -241,19 +230,11 @@ new class extends Component
             </thead>
             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                 @forelse ($this->indikators as $i => $indikator)
-                    <tr wire:key="indikator-{{ $indikator->id }}" class="bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors {{ $indikator->category === 'kerjasama' ? 'border-l-4 border-l-purple-400' : '' }}">
+                    <tr wire:key="indikator-{{ $indikator->id }}" class="bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
                         <td class="px-4 py-3 text-zinc-500">{{ $i + 1 }}</td>
                         <td class="px-4 py-3">
                             <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $indikator->nama }}</div>
-                            @if ($indikator->category === 'kerjasama' && $indikator->sourceIndikator)
-                                <div class="text-xs text-purple-500 mt-0.5 flex items-center gap-1">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-                                    Sumber: {{ $indikator->sourceIndikator->nama }}
-                                    @if($indikator->sourceIndikator->opd)
-                                        ({{ $indikator->sourceIndikator->opd->name }})
-                                    @endif
-                                </div>
-                            @elseif ($indikator->category === 'utama' && $indikator->kerjasamas->isNotEmpty())
+                            @if ($indikator->kerjasamas->isNotEmpty())
                                 <div class="text-xs text-amber-500 mt-0.5 flex items-center gap-1">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>
                                     Kerjasama: {{ $indikator->kerjasamas->pluck('opd.name')->filter()->join(', ') }}
@@ -263,11 +244,7 @@ new class extends Component
                             @endif
                         </td>
                         <td class="px-4 py-3 text-center">
-                            @if ($indikator->category === 'kerjasama')
-                                <flux:badge variant="purple" size="sm">🤝 Kerjasama</flux:badge>
-                            @else
-                                <flux:badge variant="zinc" size="sm">Utama</flux:badge>
-                            @endif
+                            <flux:badge variant="zinc" size="sm">Utama</flux:badge>
                         </td>
                         <td class="px-4 py-3">
                             @if ($indikator->measurement_type === 'kualitatif')
@@ -480,50 +457,14 @@ new class extends Component
                 <flux:error name="form.definisi" />
             </flux:field>
 
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {{-- Kategori IKU --}}
-                <flux:field>
-                    <flux:label>Kategori IKU <flux:badge size="sm" variant="blue">Wajib</flux:badge></flux:label>
-                    <flux:select wire:model.live="form.category">
-                        <flux:select.option value="utama">Utama (IKU Sendiri)</flux:select.option>
-                        <flux:select.option value="kerjasama">Kerjasama (Mirror dari OPD lain)</flux:select.option>
-                    </flux:select>
-                    <flux:description>
-                        Kerjasama: skornya otomatis mengikuti IKU sumber saat Bupati finalisasi.
-                    </flux:description>
-                    <flux:error name="form.category" />
-                </flux:field>
-
-                <flux:field>
-                    <flux:label>Tipe Pengukuran <flux:badge size="sm" variant="blue">Wajib</flux:badge></flux:label>
-                    <flux:select wire:model.live="form.measurement_type">
-                        <flux:select.option value="kuantitatif">Kuantitatif (Angka)</flux:select.option>
-                        <flux:select.option value="kualitatif">Kualitatif (Deskripsi)</flux:select.option>
-                    </flux:select>
-                    <flux:error name="form.measurement_type" />
-                </flux:field>
-            </div>
-
-            {{-- IKU Sumber (hanya untuk kerjasama) --}}
-            @if ($form->category === 'kerjasama')
-                <flux:field>
-                    <flux:label>IKU Sumber <flux:badge size="sm" variant="purple">Kerjasama</flux:badge></flux:label>
-                    <flux:select wire:model="form.source_indikator_id">
-                        <flux:select.option value="">-- Pilih IKU Sumber --</flux:select.option>
-                        @foreach ($this->indikatorSumberOptions as $sumber)
-                            <flux:select.option value="{{ $sumber->id }}">
-                                {{ $sumber->nama }}
-                                @if($sumber->opd) ({{ $sumber->opd?->name }}) @endif
-                            </flux:select.option>
-                        @endforeach
-                    </flux:select>
-                    <flux:description>
-                        Pilih IKU utama dari OPD lain yang menjadi sumber skor kerjasama ini.
-                        Skor Bupati akan otomatis sama dengan skor IKU sumber.
-                    </flux:description>
-                    <flux:error name="form.source_indikator_id" />
-                </flux:field>
-            @endif
+            <flux:field>
+                <flux:label>Tipe Pengukuran <flux:badge size="sm" variant="blue">Wajib</flux:badge></flux:label>
+                <flux:select wire:model.live="form.measurement_type">
+                    <flux:select.option value="kuantitatif">Kuantitatif (Angka)</flux:select.option>
+                    <flux:select.option value="kualitatif">Kualitatif (Deskripsi)</flux:select.option>
+                </flux:select>
+                <flux:error name="form.measurement_type" />
+            </flux:field>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <flux:field>
@@ -560,3 +501,4 @@ new class extends Component
         </div>
     </flux:modal>
 </div>
+

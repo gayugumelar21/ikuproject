@@ -104,6 +104,11 @@ class Indikator extends Model
 
     public function kerjasamas(): HasMany
     {
+        return $this->hasMany(IndikatorKerjasama::class);
+    }
+
+    public function legacyKerjasamas(): HasMany
+    {
         return $this->hasMany(Indikator::class, 'source_indikator_id');
     }
 

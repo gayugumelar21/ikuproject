@@ -44,9 +44,9 @@ new class extends Component
             return collect();
         }
 
-        return Indikator::with(['opd', 'bidang', 'sourceIndikator.opd', 'realisasi' => fn ($q) => $q->where('bulan', $this->filterBulan)])
+        return Indikator::with(['opd', 'bidang', 'realisasi' => fn ($q) => $q->where('bulan', $this->filterBulan)])
             ->where('tahun_anggaran_id', $this->filterTahunAnggaranId)
-            ->orderBy('category')
+            ->where('category', 'utama')
             ->orderBy('nama')
             ->get();
     }
@@ -59,6 +59,7 @@ new class extends Component
         }
 
         return Indikator::where('tahun_anggaran_id', $this->filterTahunAnggaranId)
+            ->where('category', 'utama')
             ->orderBy('nama')
             ->get();
     }
@@ -184,7 +185,7 @@ new class extends Component
             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                 @forelse ($this->indikators as $i => $indikator)
                     @php
-                        $isKerjasama = $indikator->category === 'kerjasama';
+                        $isKerjasama = false;
                         $realisasi = $indikator->realisasi->first();
                         $targetBulan = TargetIndikator::where('indikator_id', $indikator->id)
                             ->where('bulan', $filterBulan)
@@ -201,7 +202,7 @@ new class extends Component
                             default => 'zinc',
                         };
                     @endphp
-                    <tr wire:key="row-{{ $indikator->id }}" class="bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors {{ $isKerjasama ? 'border-l-4 border-l-purple-400' : '' }}">
+                    <tr wire:key="row-{{ $indikator->id }}" class="bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
                         <td class="px-4 py-3 text-zinc-500">{{ $i + 1 }}</td>
                         <td class="px-4 py-3">
                             <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $indikator->nama }}</div>

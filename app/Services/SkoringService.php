@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\IkuSkoring;
 use App\Models\Indikator;
+use App\Models\IndikatorKerjasama;
 use App\Models\User;
 use App\Notifications\SkorBupatiFinalisasi;
 use Illuminate\Database\Eloquent\Collection;
@@ -45,33 +46,18 @@ class SkoringService
 
         $indikator = $skoring->indikator;
 
-        // Mirror score to all kerjasama IKUs that reference this as source
-        $kerjasamas = Indikator::where('source_indikator_id', $skoring->indikator_id)
-            ->where('category', 'kerjasama')
-            ->get();
-
-        foreach ($kerjasamas as $kerjasamaIndikator) {
-            IkuSkoring::updateOrCreate(
-                [
-                    'indikator_id' => $kerjasamaIndikator->id,
-                    'bulan' => $skoring->bulan,
-                    'tahun' => $skoring->tahun,
-                ],
-                [
-                    'skor_bupati' => $skor,
-                    'bupati_notes' => "Skor otomatis dari IKU sumber: {$indikator?->nama}",
-                    'bupati_scored_at' => now(),
-                    'status' => 'final',
-                    'is_final' => true,
-                    'finalized_by' => $bupati->id,
-                    'finalized_at' => now(),
-                ]
-            );
-        }
-
         // Notify owner of the OPD that their IKU score is finalized
-        if ($indikator?->owner) {
-            $indikator->owner->notify(new SkorBupatiFinalisasi($indikator, $skoring->fresh()));
+        if ($indikator) {
+            $indikator->loadMissing(['owner', 'kerjasamas.owner']);
+
+            $penerima = collect([$indikator->owner])
+                ->merge($indikator->kerjasamas->pluck('owner'))
+                ->filter()
+                ->unique('id');
+
+            foreach ($penerima as $owner) {
+                $owner->notify(new SkorBupatiFinalisasi($indikator, $skoring->fresh()));
+            }
         }
 
         return $skoring->fresh();
@@ -85,7 +71,22 @@ class SkoringService
         $indikators = Indikator::with(['tahunAnggaran', 'skorings' => fn ($q) => $q->where('bulan', $bulan)->where('tahun', $tahun)])
             ->where('opd_id', $opdId)
             ->disetujui()
+            ->where('category', 'utama')
             ->whereHas('tahunAnggaran', fn ($q) => $q->where('tahun', $tahun))
+            ->get();
+
+        $kerjasamas = IndikatorKerjasama::with([
+            'indikator' => fn ($q) => $q->with([
+                'skorings' => fn ($sq) => $sq->where('bulan', $bulan)->where('tahun', $tahun),
+            ]),
+        ])
+            ->where('opd_id', $opdId)
+            ->disetujui()
+            ->whereHas('indikator', fn ($q) => $q
+                ->disetujui()
+                ->where('category', 'utama')
+                ->whereHas('tahunAnggaran', fn ($tq) => $tq->where('tahun', $tahun))
+            )
             ->get();
 
         $skorTotal = 0.0;
@@ -100,7 +101,16 @@ class SkoringService
             }
         }
 
-        $jumlahIndikator = $indikators->count();
+        foreach ($kerjasamas as $kerjasama) {
+            $skoring = $kerjasama->indikator?->skorings?->first();
+
+            if ($skoring && $skoring->status === 'final' && $skoring->skor_bupati !== null) {
+                $skorTotal += $skoring->skor_bupati * ((float) $kerjasama->bobot / 100);
+                $sudahFinal++;
+            }
+        }
+
+        $jumlahIndikator = $indikators->count() + $kerjasamas->count();
 
         return [
             'skor_total' => round($skorTotal, 2),
@@ -116,6 +126,7 @@ class SkoringService
             ->where('status', 'ai_done')
             ->where('bulan', $bulan)
             ->where('tahun', $tahun)
+            ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
             ->get();
     }
 
@@ -125,6 +136,7 @@ class SkoringService
             ->where('status', 'ta_done')
             ->where('bulan', $bulan)
             ->where('tahun', $tahun)
+            ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
             ->get();
     }
 
@@ -133,6 +145,7 @@ class SkoringService
         return IkuSkoring::where('status', 'final')
             ->where('bulan', $bulan)
             ->where('tahun', $tahun)
+            ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
             ->get();
     }
 }
