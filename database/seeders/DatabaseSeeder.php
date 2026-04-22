@@ -13,11 +13,15 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(RolePermissionSeeder::class);
+        $this->call([
+            RolePermissionSeeder::class,
+            SettingsSeeder::class,
+        ]);
 
         $adminUser = User::factory()->create([
             'name' => 'Admin Super',
             'email' => 'admin@ikuproject.test',
+            'username' => 'admin',
         ]);
 
         $adminUser->assignRole('admin_super');

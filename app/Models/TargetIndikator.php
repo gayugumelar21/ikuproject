@@ -11,6 +11,7 @@ class TargetIndikator extends Model
         'indikator_id',
         'bulan',
         'target',
+        'target_description',
     ];
 
     protected function casts(): array

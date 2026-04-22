@@ -37,6 +37,12 @@ class RolePermissionSeeder extends Seeder
             'lihat-realisasi',
             'verifikasi-realisasi',
 
+            // Skoring IKU
+            'skoring-ai',
+            'skoring-ta',
+            'skoring-bupati',
+            'lihat-skoring',
+
             // Laporan
             'lihat-laporan-opd',
             'lihat-laporan-asisten',
@@ -52,12 +58,14 @@ class RolePermissionSeeder extends Seeder
         $adminSuper = Role::firstOrCreate(['name' => 'admin_super']);
         $adminSuper->givePermissionTo(Permission::all());
 
-        // Bupati — lihat laporan semua & setujui indikator
+        // Bupati — skoring final + lihat semua laporan
         $bupati = Role::firstOrCreate(['name' => 'bupati']);
         $bupati->givePermissionTo([
             'lihat-indikator',
             'setujui-indikator-bupati',
             'lihat-realisasi',
+            'lihat-skoring',
+            'skoring-bupati',
             'lihat-laporan-semua',
         ]);
 
@@ -117,7 +125,12 @@ class RolePermissionSeeder extends Seeder
             'input-realisasi',
             'edit-realisasi',
             'lihat-realisasi',
+            'lihat-skoring',
             'lihat-laporan-opd',
         ]);
+
+        // Tenaga Ahli (via admin_super) — skoring TA + generate AI
+        // admin_super sudah dapat semua permission via Permission::all() di atas
+        // Tidak perlu role terpisah — admin_super memegang peran Tenaga Ahli
     }
 }

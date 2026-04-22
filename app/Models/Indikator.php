@@ -19,10 +19,14 @@ class Indikator extends Model
         'nama',
         'definisi',
         'satuan',
+        'measurement_type',
         'target',
         'bobot',
         'status',
         'dibuat_oleh',
+        'owner_user_id',
+        'category',
+        'source_indikator_id',
     ];
 
     protected function casts(): array
@@ -76,6 +80,41 @@ class Indikator extends Model
     public function dibuatOleh(): BelongsTo
     {
         return $this->belongsTo(User::class, 'dibuat_oleh');
+    }
+
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_user_id');
+    }
+
+    public function skorings(): HasMany
+    {
+        return $this->hasMany(IkuSkoring::class);
+    }
+
+    public function getSkoringBulan(int $bulan, int $tahun): ?IkuSkoring
+    {
+        return $this->skorings()->where('bulan', $bulan)->where('tahun', $tahun)->first();
+    }
+
+    public function sourceIndikator(): BelongsTo
+    {
+        return $this->belongsTo(Indikator::class, 'source_indikator_id');
+    }
+
+    public function kerjasamas(): HasMany
+    {
+        return $this->hasMany(Indikator::class, 'source_indikator_id');
+    }
+
+    public function isKerjasama(): bool
+    {
+        return $this->category === 'kerjasama';
+    }
+
+    public function isKualitatif(): bool
+    {
+        return $this->measurement_type === 'kualitatif';
     }
 
     public function targetBulanan(): HasMany
