@@ -18,6 +18,7 @@ new class extends Component
     public RealisasiForm $form;
 
     public ?int $filterTahunAnggaranId = null;
+    public ?int $filterOpdId = null;
     public int $filterBulan = 1;
     public bool $isEditing = false;
 
@@ -51,8 +52,23 @@ new class extends Component
         return Indikator::with(['opd', 'bidang', 'realisasi' => fn ($q) => $q->where('bulan', $this->filterBulan)])
             ->where('tahun_anggaran_id', $this->filterTahunAnggaranId)
             ->where('category', 'utama')
+            ->when($this->filterOpdId, function ($q) {
+                $opdId = $this->filterOpdId;
+                return $q->where(function ($q2) use ($opdId) {
+                    $q2->where('opd_id', $opdId)
+                       ->orWhere('asisten_id', $opdId)
+                       ->orWhere('sekda_id', $opdId)
+                       ->orWhere('kabag_id', $opdId);
+                });
+            })
             ->orderBy('nama')
             ->get();
+    }
+
+    #[Computed]
+    public function filterOpds(): \Illuminate\Support\Collection
+    {
+        return \App\Models\Opd::whereIn('type', ['sekda', 'asisten', 'opd', 'kabag'])->orderBy('name')->get();
     }
 
     #[Computed]
@@ -142,8 +158,7 @@ new class extends Component
         <flux:heading size="xl">Input Realisasi</flux:heading>
     </div>
 
-    {{-- Filter --}}
-    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 max-w-xl">
+    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3 max-w-4xl">
         <flux:field>
             <flux:label>Tahun Anggaran</flux:label>
             <flux:select wire:model.live="filterTahunAnggaranId">
@@ -165,6 +180,18 @@ new class extends Component
                 @endphp
                 @foreach ($bulanList as $num => $nama)
                     <flux:select.option wire:key="bulan-{{ $num }}" value="{{ $num }}">{{ $nama }}</flux:select.option>
+                @endforeach
+            </flux:select>
+        </flux:field>
+
+        <flux:field>
+            <flux:label>Filter Unit / OPD</flux:label>
+            <flux:select wire:model.live="filterOpdId">
+                <flux:select.option value="">-- Semua Unit --</flux:select.option>
+                @foreach ($this->filterOpds as $opd)
+                    <flux:select.option wire:key="filter-opd-{{ $opd->id }}" value="{{ $opd->id }}">
+                        {{ $opd->name }}
+                    </flux:select.option>
                 @endforeach
             </flux:select>
         </flux:field>

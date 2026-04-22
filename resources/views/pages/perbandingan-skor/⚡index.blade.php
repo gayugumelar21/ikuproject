@@ -10,6 +10,7 @@ new #[Title('Perbandingan Skor IKU')] class extends Component
 {
     public int $bulan;
     public int $tahun;
+    public ?int $filterOpdId = null;
 
     private SkoringService $service;
 
@@ -27,7 +28,13 @@ new #[Title('Perbandingan Skor IKU')] class extends Component
     #[Computed]
     public function skorings()
     {
-        return $this->service->getAllSkorings($this->bulan, $this->tahun);
+        return $this->service->getAllSkorings($this->bulan, $this->tahun, $this->filterOpdId);
+    }
+
+    #[Computed]
+    public function filterOpds(): \Illuminate\Support\Collection
+    {
+        return \App\Models\Opd::whereIn('type', ['sekda', 'asisten', 'opd', 'kabag'])->orderBy('name')->get();
     }
 
     #[Computed]
@@ -60,8 +67,20 @@ new #[Title('Perbandingan Skor IKU')] class extends Component
             <flux:text class="mt-1 text-zinc-500">Bandingkan skor AI, Tenaga Ahli, dan Bupati per indikator.</flux:text>
         </div>
 
-        <div class="flex gap-3">
+        <div class="flex flex-wrap gap-3">
             <flux:field>
+                <flux:label>Unit / OPD</flux:label>
+                <flux:select wire:model.live="filterOpdId" class="w-64">
+                    <flux:select.option value="">-- Semua Unit --</flux:select.option>
+                    @foreach ($this->filterOpds as $opd)
+                        <flux:select.option wire:key="filter-opd-{{ $opd->id }}" value="{{ $opd->id }}">
+                            {{ $opd->name }}
+                        </flux:select.option>
+                    @endforeach
+                </flux:select>
+            </flux:field>
+            <flux:field>
+                <flux:label>Bulan</flux:label>
                 <flux:select wire:model.live="bulan" class="w-36">
                     @foreach (['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] as $idx => $nama)
                         <flux:select.option value="{{ $idx + 1 }}">{{ $nama }}</flux:select.option>
@@ -69,6 +88,7 @@ new #[Title('Perbandingan Skor IKU')] class extends Component
                 </flux:select>
             </flux:field>
             <flux:field>
+                <flux:label>Tahun</flux:label>
                 <flux:input type="number" wire:model.live="tahun" class="w-24" min="2020" max="2030" />
             </flux:field>
         </div>

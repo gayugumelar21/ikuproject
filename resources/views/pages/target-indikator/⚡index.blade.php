@@ -10,6 +10,7 @@ use Flux\Flux;
 new class extends Component
 {
     public ?int $tahunAnggaranId = null;
+    public ?int $filterOpdId = null;
     public ?int $indikatorId = null;
 
     /** @var array<int, array{nilai: string, deskripsi: string}> */
@@ -39,8 +40,25 @@ new class extends Component
 
         return Indikator::where('tahun_anggaran_id', $this->tahunAnggaranId)
             ->where('category', 'utama')
+            ->when($this->filterOpdId, function ($q) {
+                $opd = \App\Models\Opd::find($this->filterOpdId);
+                if (!$opd) return $q;
+                return match($opd->type) {
+                    'sekda' => $q->where('sekda_id', $opd->id),
+                    'asisten' => $q->where('asisten_id', $opd->id),
+                    'opd' => $q->where('opd_id', $opd->id),
+                    'kabag' => $q->where('kabag_id', $opd->id),
+                    default => $q->where('opd_id', $opd->id),
+                };
+            })
             ->orderBy('nama')
             ->get();
+    }
+
+    #[Computed]
+    public function filterOpds(): \Illuminate\Support\Collection
+    {
+        return \App\Models\Opd::whereIn('type', ['sekda', 'asisten', 'opd', 'kabag'])->orderBy('name')->get();
     }
 
     #[Computed]
@@ -54,6 +72,16 @@ new class extends Component
     }
 
     public function updatedTahunAnggaranId(): void
+    {
+        $this->filterOpdId = null;
+        $this->indikatorId = null;
+        for ($b = 1; $b <= 12; $b++) {
+            $this->targets[$b] = ['nilai' => '', 'deskripsi' => ''];
+        }
+        unset($this->indikators, $this->indikatorTerpilih);
+    }
+
+    public function updatedFilterOpdId(): void
     {
         $this->indikatorId = null;
         for ($b = 1; $b <= 12; $b++) {
@@ -118,8 +146,7 @@ new class extends Component
         <flux:text class="mt-1 text-zinc-500">Atur target per bulan untuk setiap indikator kinerja utama.</flux:text>
     </div>
 
-    {{-- Pemilihan Tahun & Indikator --}}
-    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 max-w-2xl">
+    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3 max-w-4xl">
         <flux:field>
             <flux:label>Tahun Anggaran</flux:label>
             <flux:select wire:model.live="tahunAnggaranId">
@@ -127,6 +154,18 @@ new class extends Component
                 @foreach ($this->tahunAnggarans as $tahun)
                     <flux:select.option wire:key="tahun-{{ $tahun->id }}" value="{{ $tahun->id }}">
                         {{ $tahun->tahun }}{{ $tahun->is_active ? ' (Aktif)' : '' }}
+                    </flux:select.option>
+                @endforeach
+            </flux:select>
+        </flux:field>
+
+        <flux:field>
+            <flux:label>Unit / OPD</flux:label>
+            <flux:select wire:model.live="filterOpdId" :disabled="! $tahunAnggaranId">
+                <flux:select.option value="">-- Semua Unit --</flux:select.option>
+                @foreach ($this->filterOpds as $opd)
+                    <flux:select.option wire:key="filter-opd-{{ $opd->id }}" value="{{ $opd->id }}">
+                        {{ $opd->name }}
                     </flux:select.option>
                 @endforeach
             </flux:select>

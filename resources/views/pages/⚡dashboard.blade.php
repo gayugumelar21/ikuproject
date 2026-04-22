@@ -38,7 +38,7 @@ new #[Title('Dashboard IKU')] class extends Component
     #[Computed]
     public function unitOptions(): Collection
     {
-        return Opd::whereIn('type', ['sekda', 'asisten'])->orderBy('type')->orderBy('name')->get();
+        return Opd::whereIn('type', ['sekda', 'asisten', 'opd', 'kabag'])->orderBy('type')->orderBy('name')->get();
     }
 
     /**

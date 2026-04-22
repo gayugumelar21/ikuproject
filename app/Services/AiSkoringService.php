@@ -12,12 +12,21 @@ use Illuminate\Support\Facades\Log;
 class AiSkoringService
 {
     private array $namaBulan = [
-        1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
-        5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
-        9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+        1 => 'Januari',
+        2 => 'Februari',
+        3 => 'Maret',
+        4 => 'April',
+        5 => 'Mei',
+        6 => 'Juni',
+        7 => 'Juli',
+        8 => 'Agustus',
+        9 => 'September',
+        10 => 'Oktober',
+        11 => 'November',
+        12 => 'Desember',
     ];
 
-    public function generate(Indikator $indikator, int $bulan, int $tahun): ?IkuSkoring
+    public function generate(Indikator $indikator, int $bulan, int $tahun, string $aiModel = 'auto'): ?IkuSkoring
     {
         $target = TargetIndikator::where('indikator_id', $indikator->id)
             ->where('bulan', $bulan)
@@ -27,7 +36,7 @@ class AiSkoringService
             ->where('bulan', $bulan)
             ->first();
 
-        if (! $realisasi) {
+        if (!$realisasi) {
             return null;
         }
 
@@ -53,63 +62,34 @@ Berikan skor 1-10 berdasarkan tingkat ketercapaian target. Pertimbangkan konteks
 Balas HANYA dengan JSON: {"skor": integer, "reasoning": "string singkat bahasa Indonesia"}
 PROMPT;
 
-        $existing = IkuSkoring::where('indikator_id', $indikator->id)
-            ->where('bulan', $bulan)
-            ->where('tahun', $tahun)
-            ->first();
+        $parsed = null;
 
         try {
-            $response = Http::timeout(30)
-                ->withHeaders([
-                    'x-api-key' => config('services.anthropic.key'),
-                    'anthropic-version' => '2023-06-01',
-                    'content-type' => 'application/json',
-                ])
-                ->post('https://api.anthropic.com/v1/messages', [
-                    'model' => config('services.anthropic.model', 'claude-sonnet-4-6'),
-                    'max_tokens' => 300,
-                    'messages' => [
-                        ['role' => 'user', 'content' => $prompt],
-                    ],
-                ]);
-
-            if ($response->failed()) {
-                Log::error('Anthropic API error', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                    'indikator_id' => $indikator->id,
-                    'bulan' => $bulan,
-                    'tahun' => $tahun,
-                ]);
-
-                // Fallback to Gemini
+            if ($aiModel === 'claude') {
+                $parsed = $this->callClaude($prompt);
+            } elseif ($aiModel === 'gemini') {
                 $parsed = $this->callGemini($prompt);
-
-                if (!$parsed) {
-                    // Fallback dummy AI scoring if Gemini also fails or no key
-                    $skorDummy = rand(6, 9);
-                    $reasoningDummy = "Simulasi AI (Fallback): Target tercapai sebagian/penuh sesuai bukti. (Pesan: API limit / credit habis di Anthropic & Gemini gagal/belum diset).";
-                    
-                    return IkuSkoring::updateOrCreate(
-                        ['indikator_id' => $indikator->id, 'bulan' => $bulan, 'tahun' => $tahun],
-                        [
-                            'realisasi_id' => $realisasi->id,
-                            'skor_ai' => $skorDummy,
-                            'ai_reasoning' => $reasoningDummy,
-                            'ai_generated_at' => now(),
-                            'status' => 'ai_done',
-                        ]
-                    );
-                }
             } else {
-                $parsed = json_decode($response->json('content.0.text'), true);
+                // Auto: Claude first, then Gemini fallback
+                $parsed = $this->callClaude($prompt);
+                if (!$parsed) {
+                    $parsed = $this->callGemini($prompt);
+                }
+            }
+
+            if (!$parsed) {
+                // Final fallback dummy
+                $parsed = [
+                    'skor' => rand(6, 9),
+                    'reasoning' => "Simulasi AI (Fallback): API limit atau error pada model yang dipilih ({$aiModel})."
+                ];
             }
 
             return IkuSkoring::updateOrCreate(
                 ['indikator_id' => $indikator->id, 'bulan' => $bulan, 'tahun' => $tahun],
                 [
                     'realisasi_id' => $realisasi->id,
-                    'skor_ai' => $parsed['skor'] ?? rand(6,9),
+                    'skor_ai' => $parsed['skor'] ?? rand(6, 9),
                     'ai_reasoning' => $parsed['reasoning'] ?? "Skor AI dihasilkan.",
                     'ai_generated_at' => now(),
                     'status' => 'ai_done',
@@ -123,20 +103,49 @@ PROMPT;
                 'tahun' => $tahun,
             ]);
 
-            // Fallback dummy AI scoring if json parse fails or other exceptions
-            $skorDummy = rand(6, 9);
-            $reasoningDummy = "Simulasi AI (Fallback): Exception saat parsing JSON.";
-            
             return IkuSkoring::updateOrCreate(
                 ['indikator_id' => $indikator->id, 'bulan' => $bulan, 'tahun' => $tahun],
                 [
                     'realisasi_id' => $realisasi->id,
-                    'skor_ai' => $skorDummy,
-                    'ai_reasoning' => $reasoningDummy,
+                    'skor_ai' => rand(6, 9),
+                    'ai_reasoning' => "Simulasi AI (Fallback): Terjadi kesalahan teknis.",
                     'ai_generated_at' => now(),
                     'status' => 'ai_done',
                 ]
             );
+        }
+    }
+
+    private function callClaude(string $prompt): ?array
+    {
+        $apiKey = config('services.anthropic.key');
+        if (empty($apiKey)) return null;
+
+        try {
+            $response = Http::timeout(30)
+                ->withHeaders([
+                    'x-api-key' => $apiKey,
+                    'anthropic-version' => '2023-06-01',
+                    'content-type' => 'application/json',
+                ])
+                ->post('https://api.anthropic.com/v1/messages', [
+                    'model' => config('services.anthropic.model', 'claude-3-5-sonnet-20240620'),
+                    'max_tokens' => 300,
+                    'messages' => [
+                        ['role' => 'user', 'content' => $prompt],
+                    ],
+                ]);
+
+            if ($response->failed()) {
+                Log::error('Claude API error', ['body' => $response->body()]);
+                return null;
+            }
+
+            $text = $response->json('content.0.text');
+            return json_decode($text, true);
+        } catch (\Throwable $e) {
+            Log::error('Claude call exception', ['message' => $e->getMessage()]);
+            return null;
         }
     }
 

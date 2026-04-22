@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use App\Livewire\Forms\IndikatorForm;
 use App\Models\Indikator;
@@ -15,6 +15,7 @@ new class extends Component
     public IndikatorForm $form;
 
     public ?int $filterTahunAnggaranId = null;
+    public ?int $filterOpdId = null;
     public bool $isEditing = false;
 
     private IndikatorService $service;
@@ -46,8 +47,25 @@ new class extends Component
         return Indikator::with(['sekda', 'asisten', 'kabag', 'opd', 'bidang', 'dibuatOleh', 'owner', 'kerjasamas.opd'])
             ->where('tahun_anggaran_id', $this->filterTahunAnggaranId)
             ->where('category', 'utama')
+            ->when($this->filterOpdId, function ($q) {
+                $opd = Opd::find($this->filterOpdId);
+                if (!$opd) return $q;
+                return match($opd->type) {
+                    'sekda' => $q->where('sekda_id', $opd->id),
+                    'asisten' => $q->where('asisten_id', $opd->id),
+                    'opd' => $q->where('opd_id', $opd->id),
+                    'kabag' => $q->where('kabag_id', $opd->id),
+                    default => $q->where('opd_id', $opd->id),
+                };
+            })
             ->orderBy('nama')
             ->get();
+    }
+
+    #[Computed]
+    public function filterOpds(): \Illuminate\Support\Collection
+    {
+        return Opd::whereIn('type', ['sekda', 'asisten', 'opd', 'kabag'])->orderBy('name')->get();
     }
 
     #[Computed]
@@ -195,15 +213,26 @@ new class extends Component
         @endcan
     </div>
 
-    {{-- Filter Tahun Anggaran --}}
-    <div class="mb-6">
-        <flux:field class="max-w-xs">
+    <div class="mb-6 flex flex-wrap gap-4">
+        <flux:field class="max-w-xs w-full">
             <flux:label>Tahun Anggaran</flux:label>
             <flux:select wire:model.live="filterTahunAnggaranId">
                 <flux:select.option value="">-- Pilih Tahun --</flux:select.option>
                 @foreach ($this->tahunAnggarans as $tahun)
                     <flux:select.option wire:key="tahun-{{ $tahun->id }}" value="{{ $tahun->id }}">
                         {{ $tahun->tahun }}{{ $tahun->is_active ? ' (Aktif)' : '' }}
+                    </flux:select.option>
+                @endforeach
+            </flux:select>
+        </flux:field>
+
+        <flux:field class="max-w-xs w-full">
+            <flux:label>Filter Unit / OPD</flux:label>
+            <flux:select wire:model.live="filterOpdId">
+                <flux:select.option value="">-- Semua Unit --</flux:select.option>
+                @foreach ($this->filterOpds as $opd)
+                    <flux:select.option wire:key="filter-opd-{{ $opd->id }}" value="{{ $opd->id }}">
+                        {{ $opd->name }}
                     </flux:select.option>
                 @endforeach
             </flux:select>

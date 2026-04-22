@@ -120,40 +120,80 @@ class SkoringService
         ];
     }
 
-    public function getPendingUntukTa(int $bulan, int $tahun): Collection
+    public function getPendingUntukTa(int $bulan, int $tahun, ?int $filterOpdId = null): Collection
     {
-        // TA bisa scoring: status pending (ada realisasi) atau ai_done
         return IkuSkoring::with(['indikator.opd', 'indikator.bidang', 'realisasi'])
             ->whereIn('status', ['pending', 'ai_done'])
             ->where('bulan', $bulan)
             ->where('tahun', $tahun)
-            ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
-            ->whereHas('realisasi') // pastikan ada data realisasi
+            ->whereHas('indikator', function ($q) use ($filterOpdId) {
+                $q->where('category', 'utama');
+                if ($filterOpdId) {
+                    $opd = \App\Models\Opd::find($filterOpdId);
+                    if ($opd) {
+                        match($opd->type) {
+                            'sekda' => $q->where('sekda_id', $opd->id),
+                            'asisten' => $q->where('asisten_id', $opd->id),
+                            'opd' => $q->where('opd_id', $opd->id),
+                            'kabag' => $q->where('kabag_id', $opd->id),
+                            default => $q->where('opd_id', $opd->id),
+                        };
+                    }
+                }
+            })
+            ->whereHas('realisasi')
             ->get();
     }
 
-    public function getPendingUntukBupati(int $bulan, int $tahun): Collection
+    public function getPendingUntukBupati(int $bulan, int $tahun, ?int $filterOpdId = null): Collection
     {
-        // Bupati bisa scoring dari semua status non-final (pending, ai_done, ta_done)
         return IkuSkoring::with(['indikator.opd', 'indikator.bidang', 'realisasi'])
             ->whereIn('status', ['pending', 'ai_done', 'ta_done'])
             ->where('bulan', $bulan)
             ->where('tahun', $tahun)
-            ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
-            ->whereHas('realisasi') // pastikan ada data realisasi
+            ->whereHas('indikator', function ($q) use ($filterOpdId) {
+                $q->where('category', 'utama');
+                if ($filterOpdId) {
+                    $opd = \App\Models\Opd::find($filterOpdId);
+                    if ($opd) {
+                        match($opd->type) {
+                            'sekda' => $q->where('sekda_id', $opd->id),
+                            'asisten' => $q->where('asisten_id', $opd->id),
+                            'opd' => $q->where('opd_id', $opd->id),
+                            'kabag' => $q->where('kabag_id', $opd->id),
+                            default => $q->where('opd_id', $opd->id),
+                        };
+                    }
+                }
+            })
+            ->whereHas('realisasi')
             ->get();
     }
 
-    public function getSudahFinal(int $bulan, int $tahun): Collection
+    public function getSudahFinal(int $bulan, int $tahun, ?int $filterOpdId = null): Collection
     {
         return IkuSkoring::where('status', 'final')
             ->where('bulan', $bulan)
             ->where('tahun', $tahun)
-            ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
+            ->whereHas('indikator', function ($q) use ($filterOpdId) {
+                $q->where('category', 'utama');
+                if ($filterOpdId) {
+                    $opd = \App\Models\Opd::find($filterOpdId);
+                    if ($opd) {
+                        match($opd->type) {
+                            'sekda' => $q->where('sekda_id', $opd->id),
+                            'asisten' => $q->where('asisten_id', $opd->id),
+                            'opd' => $q->where('opd_id', $opd->id),
+                            'kabag' => $q->where('kabag_id', $opd->id),
+                            default => $q->where('opd_id', $opd->id),
+                        };
+                    }
+                }
+            })
             ->get();
     }
 
-    public function getIndikatorBelumSkoring(int $bulan, int $tahun): Collection
+    public function getIndikatorBelumSkoring(int $bulan, int $tahun, ?int $filterOpdId = null): Collection
     {
         return Indikator::with([
             'opd',
@@ -162,6 +202,18 @@ class SkoringService
         ])
             ->where('category', 'utama')
             ->disetujui()
+            ->when($filterOpdId, function ($q) use ($filterOpdId) {
+                $opd = \App\Models\Opd::find($filterOpdId);
+                if ($opd) {
+                    match($opd->type) {
+                        'sekda' => $q->where('sekda_id', $opd->id),
+                        'asisten' => $q->where('asisten_id', $opd->id),
+                        'opd' => $q->where('opd_id', $opd->id),
+                        'kabag' => $q->where('kabag_id', $opd->id),
+                        default => $q->where('opd_id', $opd->id),
+                    };
+                }
+            })
             ->whereHas('realisasi', fn ($q) => $q->where('bulan', $bulan))
             ->whereHas('tahunAnggaran', fn ($q) => $q->where('tahun', $tahun))
             ->whereDoesntHave('skorings', fn ($q) => $q->where('bulan', $bulan)->where('tahun', $tahun))
@@ -169,12 +221,26 @@ class SkoringService
             ->get();
     }
 
-    public function getAllSkorings(int $bulan, int $tahun): Collection
+    public function getAllSkorings(int $bulan, int $tahun, ?int $filterOpdId = null): Collection
     {
         return IkuSkoring::with(['indikator.opd', 'indikator.bidang', 'realisasi', 'taScoredBy', 'finalizedBy'])
             ->where('bulan', $bulan)
             ->where('tahun', $tahun)
-            ->whereHas('indikator', fn ($q) => $q->where('category', 'utama'))
+            ->whereHas('indikator', function ($q) use ($filterOpdId) {
+                $q->where('category', 'utama');
+                if ($filterOpdId) {
+                    $opd = \App\Models\Opd::find($filterOpdId);
+                    if ($opd) {
+                        match($opd->type) {
+                            'sekda' => $q->where('sekda_id', $opd->id),
+                            'asisten' => $q->where('asisten_id', $opd->id),
+                            'opd' => $q->where('opd_id', $opd->id),
+                            'kabag' => $q->where('kabag_id', $opd->id),
+                            default => $q->where('opd_id', $opd->id),
+                        };
+                    }
+                }
+            })
             ->latest()
             ->get();
     }

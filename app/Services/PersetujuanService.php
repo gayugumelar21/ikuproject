@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 
 class PersetujuanService
 {
-    public function getPending(string $level, ?int $userOpdId = null): Collection
+    public function getPending(string $level, ?int $userOpdId = null, ?int $filterOpdId = null): Collection
     {
         $query = Persetujuan::with(['indikator.opd', 'user'])
             ->where('level', $level)
@@ -26,6 +26,20 @@ class PersetujuanService
             if ($column) {
                 $query->whereHas('indikator', fn ($q) => $q->where($column, $userOpdId));
             }
+        }
+
+        if ($filterOpdId) {
+            $query->whereHas('indikator', function ($q) use ($filterOpdId) {
+                $opd = \App\Models\Opd::find($filterOpdId);
+                if (!$opd) return;
+                match($opd->type) {
+                    'sekda' => $q->where('sekda_id', $opd->id),
+                    'asisten' => $q->where('asisten_id', $opd->id),
+                    'opd' => $q->where('opd_id', $opd->id),
+                    'kabag' => $q->where('kabag_id', $opd->id),
+                    default => $q->where('opd_id', $opd->id),
+                };
+            });
         }
 
         return $query->latest()->get();

@@ -14,6 +14,7 @@ use Flux\Flux;
 new #[Title('IKU Kerjasama Lintas OPD')] class extends Component
 {
     public ?int $filterTahunAnggaranId = null;
+    public ?int $filterOpdId = null;
     public int $filterBulan;
 
     public bool $isEditing = false;
@@ -129,8 +130,24 @@ new #[Title('IKU Kerjasama Lintas OPD')] class extends Component
             ->where('tahun_anggaran_id', $this->filterTahunAnggaranId)
             ->where('category', 'utama')
             ->whereHas('kerjasamas')
+            ->when($this->filterOpdId, function ($q) {
+                $opdId = $this->filterOpdId;
+                return $q->where(function ($q2) use ($opdId) {
+                    $q2->where('opd_id', $opdId)
+                       ->orWhere('asisten_id', $opdId)
+                       ->orWhere('sekda_id', $opdId)
+                       ->orWhere('kabag_id', $opdId)
+                       ->orWhereHas('kerjasamas', fn($q3) => $q3->where('opd_id', $opdId));
+                });
+            })
             ->orderBy('nama')
             ->get();
+    }
+
+    #[Computed]
+    public function filterOpds(): \Illuminate\Support\Collection
+    {
+        return Opd::whereIn('type', ['sekda', 'asisten', 'opd', 'kabag'])->orderBy('name')->get();
     }
 
     #[Computed]
@@ -308,8 +325,9 @@ new #[Title('IKU Kerjasama Lintas OPD')] class extends Component
         @endcan
     </div>
 
-    <div class="flex gap-3">
+    <div class="flex flex-wrap gap-3">
         <flux:field>
+            <flux:label>Tahun Anggaran</flux:label>
             <flux:select wire:model.live="filterTahunAnggaranId" class="w-40">
                 <flux:select.option value="">-- Tahun --</flux:select.option>
                 @foreach ($this->tahunAnggarans as $tahun)
@@ -319,10 +337,24 @@ new #[Title('IKU Kerjasama Lintas OPD')] class extends Component
                 @endforeach
             </flux:select>
         </flux:field>
+
         <flux:field>
+            <flux:label>Bulan</flux:label>
             <flux:select wire:model.live="filterBulan" class="w-40">
                 @foreach (['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] as $idx => $nama)
                     <flux:select.option value="{{ $idx + 1 }}">{{ $nama }}</flux:select.option>
+                @endforeach
+            </flux:select>
+        </flux:field>
+
+        <flux:field>
+            <flux:label>Filter Unit / OPD</flux:label>
+            <flux:select wire:model.live="filterOpdId" class="w-64">
+                <flux:select.option value="">-- Semua Unit --</flux:select.option>
+                @foreach ($this->filterOpds as $opd)
+                    <flux:select.option wire:key="filter-opd-{{ $opd->id }}" value="{{ $opd->id }}">
+                        {{ $opd->name }}
+                    </flux:select.option>
                 @endforeach
             </flux:select>
         </flux:field>

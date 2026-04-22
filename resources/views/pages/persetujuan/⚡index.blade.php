@@ -13,6 +13,7 @@ new class extends Component
 
     public ?int $selectedPersetujuanId = null;
     public ?int $detailIndikatorId = null;
+    public ?int $filterOpdId = null;
     public string $filterLevel = '';
 
     private PersetujuanService $service;
@@ -67,7 +68,13 @@ new class extends Component
 
         $userOpdId = $this->isAdminSuper ? null : auth()->user()->opd_id;
 
-        return $this->service->getPending($level, $userOpdId);
+        return $this->service->getPending($level, $userOpdId, $this->filterOpdId);
+    }
+
+    #[Computed]
+    public function filterOpds(): \Illuminate\Support\Collection
+    {
+        return \App\Models\Opd::whereIn('type', ['sekda', 'asisten', 'opd', 'kabag'])->orderBy('name')->get();
     }
 
     #[Computed]
@@ -142,10 +149,9 @@ new class extends Component
         </flux:callout>
     @endif
 
-    {{-- Filter Level (hanya untuk admin_super) --}}
-    @if ($this->isAdminSuper)
-        <div class="mb-6 max-w-xs">
-            <flux:field>
+    <div class="mb-6 flex flex-wrap gap-4 items-end">
+        @if ($this->isAdminSuper)
+            <flux:field class="max-w-xs w-full">
                 <flux:label>Filter Level Persetujuan</flux:label>
                 <flux:select wire:model.live="filterLevel">
                     <flux:select.option value="kabag">Kabag</flux:select.option>
@@ -154,8 +160,20 @@ new class extends Component
                     <flux:select.option value="bupati">Bupati</flux:select.option>
                 </flux:select>
             </flux:field>
-        </div>
-    @endif
+        @endif
+
+        <flux:field class="max-w-xs w-full">
+            <flux:label>Filter Unit / OPD</flux:label>
+            <flux:select wire:model.live="filterOpdId">
+                <flux:select.option value="">-- Semua Unit --</flux:select.option>
+                @foreach ($this->filterOpds as $opd)
+                    <flux:select.option wire:key="filter-opd-{{ $opd->id }}" value="{{ $opd->id }}">
+                        {{ $opd->name }}
+                    </flux:select.option>
+                @endforeach
+            </flux:select>
+        </flux:field>
+    </div>
 
     {{-- Tabel Persetujuan --}}
     <div class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
