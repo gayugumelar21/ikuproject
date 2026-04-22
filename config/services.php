@@ -45,4 +45,8 @@ return [
         'model' => env('GEMINI_MODEL', 'gemini-1.5-flash'),
     ],
 
+    'fonnte' => [
+        'token' => env('FONNTE_TOKEN', ''),
+    ],
+
 ];

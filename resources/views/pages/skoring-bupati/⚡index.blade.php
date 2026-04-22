@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\IkuSkoring;
+use App\Models\Opd;
 use App\Services\SkoringService;
 use Flux\Flux;
 use Illuminate\Support\Facades\Storage;

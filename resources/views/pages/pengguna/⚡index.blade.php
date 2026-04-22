@@ -125,6 +125,7 @@ new #[Title('Kelola Pengguna')] class extends Component {
                     <th class="px-4 py-3">Nama</th>
                     <th class="px-4 py-3">Username</th>
                     <th class="px-4 py-3">Email</th>
+                    <th class="px-4 py-3">No. WA</th>
                     <th class="px-4 py-3">OPD</th>
                     <th class="px-4 py-3">Role</th>
                     <th class="px-4 py-3">Aksi</th>
@@ -136,6 +137,7 @@ new #[Title('Kelola Pengguna')] class extends Component {
                         <td class="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">{{ $user->name }}</td>
                         <td class="px-4 py-3 font-mono text-zinc-600 dark:text-zinc-400">{{ $user->username }}</td>
                         <td class="px-4 py-3 text-zinc-600 dark:text-zinc-400">{{ $user->email }}</td>
+                        <td class="px-4 py-3 text-zinc-600 dark:text-zinc-400">{{ $user->phone ?? '-' }}</td>
                         <td class="px-4 py-3 text-zinc-500 dark:text-zinc-400">{{ $user->opd?->name ?? '-' }}</td>
                         <td class="px-4 py-3">
                             @forelse ($user->roles as $role)
@@ -195,6 +197,13 @@ new #[Title('Kelola Pengguna')] class extends Component {
                         <flux:error name="form.email" />
                     </flux:field>
                 </div>
+
+                <flux:field>
+                    <flux:label>No. WhatsApp (Fonnte)</flux:label>
+                    <flux:input wire:model="form.phone" placeholder="Contoh: 08123456789" />
+                    <flux:error name="form.phone" />
+                    <flux:description>Nomor HP untuk pengiriman notifikasi via Fonnte.</flux:description>
+                </flux:field>
 
                 <div class="grid grid-cols-2 gap-4">
                     <flux:field>

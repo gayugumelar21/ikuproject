@@ -29,6 +29,20 @@ class SkoringService
             'status' => 'ta_done',
         ]);
 
+        // Notify Bupati that TA has provided a score
+        try {
+            $wa = app(WhatsAppService::class);
+            $bupatis = User::role('bupati')->whereNotNull('phone')->get();
+            $indikator = $skoring->indikator;
+
+            foreach ($bupatis as $bupati) {
+                $msg = "⭐ *Skoring Tenaga Ahli Selesai*\n\nHalo Bapak {$bupati->name}, Tenaga Ahli telah memberikan skor pertimbangan untuk IKU:\n\nOPD: {$indikator->opd?->name}\nIndikator: *{$indikator->nama}*\nSkor TA: *{$skor}/10*\n\nMohon perkenan Bapak untuk memberikan skor final di aplikasi IKU.";
+                $wa->notifyUser($bupati, $msg);
+            }
+        } catch (\Exception $e) {
+            \Log::error("Gagal kirim WA Skor TA: " . $e->getMessage());
+        }
+
         return $skoring->fresh();
     }
 
@@ -57,6 +71,19 @@ class SkoringService
 
             foreach ($penerima as $owner) {
                 $owner->notify(new SkorBupatiFinalisasi($indikator, $skoring->fresh()));
+            }
+
+            // Notify via WhatsApp
+            try {
+                $wa = app(WhatsAppService::class);
+                foreach ($penerima as $owner) {
+                    if ($owner->phone) {
+                        $msg = "🏆 *Skor Akhir IKU Selesai*\n\nHalo {$owner->name}, Bupati telah memberikan skor final untuk IKU Anda.\n\nIndikator: *{$indikator->nama}*\nSkor Final: *{$skor}/10*\n\nCatatan Bupati: " . ($notes ?: '-') . "\n\nTerima kasih atas kinerjanya.";
+                        $wa->notifyUser($owner, $msg);
+                    }
+                }
+            } catch (\Exception $e) {
+                \Log::error("Gagal kirim WA Skor Bupati: " . $e->getMessage());
             }
         }
 

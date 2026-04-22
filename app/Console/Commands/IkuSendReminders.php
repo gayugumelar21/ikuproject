@@ -35,7 +35,7 @@ class IkuSendReminders extends Command
         $count = 0;
         foreach ($belumInput as $indikator) {
             $user = $indikator->owner;
-            if (! $user || ! $user->phone_wa) {
+            if (! $user || ! $user->phone) {
                 continue;
             }
 
@@ -44,7 +44,7 @@ class IkuSendReminders extends Command
                 ."_{$indikator->nama}_\n\n"
                 .'Mohon segera diinput. Terima kasih.';
 
-            SendWhatsAppMessage::dispatch($user->phone_wa, $pesan, 'reminder', $user->id);
+            SendWhatsAppMessage::dispatch($user->phone, $pesan, 'reminder', $user->id);
             $count++;
         }
 

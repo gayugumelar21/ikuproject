@@ -167,15 +167,39 @@
 
             <flux:spacer />
 
-            <flux:sidebar.nav>
-                <flux:sidebar.item icon="folder-git-2" href="https://github.com/laravel/livewire-starter-kit" target="_blank">
-                    {{ __('Repository') }}
-                </flux:sidebar.item>
-
-                <flux:sidebar.item icon="book-open-text" href="https://laravel.com/docs/starter-kits#livewire" target="_blank">
-                    {{ __('Documentation') }}
-                </flux:sidebar.item>
-            </flux:sidebar.nav>
+            {{-- Notification Bell Desktop --}}
+            @php $notifCount = auth()->user()->unreadNotifications()->count(); @endphp
+            <div class="hidden lg:block px-3 py-2">
+                <flux:dropdown position="top" align="start">
+                    <button class="relative flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+                        <flux:icon name="bell" class="size-5 shrink-0" />
+                        <span>Notifikasi</span>
+                        @if($notifCount > 0)
+                            <span class="ml-auto bg-red-500 text-white text-xs rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1 font-bold">
+                                {{ $notifCount > 9 ? '9+' : $notifCount }}
+                            </span>
+                        @endif
+                    </button>
+                    <flux:menu class="w-80">
+                        <div class="px-3 py-2 border-b border-zinc-200 dark:border-zinc-700">
+                            <flux:heading size="sm">Notifikasi {{ $notifCount > 0 ? "({$notifCount})" : '' }}</flux:heading>
+                        </div>
+                        @forelse(auth()->user()->unreadNotifications()->latest()->limit(5)->get() as $notif)
+                            <flux:menu.item class="py-2 cursor-pointer" wire:click="$dispatch('mark-notif-read', { id: '{{ $notif->id }}' })">
+                                <div class="text-xs text-zinc-700 dark:text-zinc-300">{{ $notif->data['message'] ?? '-' }}</div>
+                                <div class="text-xs text-zinc-400 mt-0.5">{{ $notif->created_at->diffForHumans() }}</div>
+                            </flux:menu.item>
+                        @empty
+                            <div class="px-3 py-4 text-center text-xs text-zinc-400">Tidak ada notifikasi baru.</div>
+                        @endforelse
+                        @if($notifCount > 0)
+                            <div class="border-t border-zinc-200 dark:border-zinc-700 px-3 py-2">
+                                <span class="text-xs text-zinc-400">{{ $notifCount }} notifikasi belum dibaca</span>
+                            </div>
+                        @endif
+                    </flux:menu>
+                </flux:dropdown>
+            </div>
 
             <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
         </flux:sidebar>
@@ -186,29 +210,31 @@
 
             <flux:spacer />
 
-            {{-- Notification Bell --}}
+            {{-- Notification Bell Mobile --}}
             @php $notifCount = auth()->user()->unreadNotifications()->count(); @endphp
-            @if($notifCount > 0)
-                <flux:dropdown position="bottom" align="end">
-                    <flux:button variant="ghost" size="sm" class="relative">
-                        <flux:icon name="bell" class="size-5" />
+            <flux:dropdown position="bottom" align="end">
+                <flux:button variant="ghost" size="sm" class="relative">
+                    <flux:icon name="bell" class="size-5" />
+                    @if($notifCount > 0)
                         <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
                             {{ $notifCount > 9 ? '9+' : $notifCount }}
                         </span>
-                    </flux:button>
-                    <flux:menu class="w-80">
-                        <div class="px-3 py-2 border-b border-zinc-200 dark:border-zinc-700">
-                            <flux:heading size="sm">Notifikasi ({{ $notifCount }})</flux:heading>
-                        </div>
-                        @foreach(auth()->user()->unreadNotifications()->latest()->limit(5)->get() as $notif)
-                            <flux:menu.item class="py-2">
-                                <div class="text-xs text-zinc-700 dark:text-zinc-300">{{ $notif->data['message'] ?? '-' }}</div>
-                                <div class="text-xs text-zinc-400 mt-0.5">{{ $notif->created_at->diffForHumans() }}</div>
-                            </flux:menu.item>
-                        @endforeach
-                    </flux:menu>
-                </flux:dropdown>
-            @endif
+                    @endif
+                </flux:button>
+                <flux:menu class="w-80">
+                    <div class="px-3 py-2 border-b border-zinc-200 dark:border-zinc-700">
+                        <flux:heading size="sm">Notifikasi {{ $notifCount > 0 ? "({$notifCount})" : '' }}</flux:heading>
+                    </div>
+                    @forelse(auth()->user()->unreadNotifications()->latest()->limit(5)->get() as $notif)
+                        <flux:menu.item class="py-2">
+                            <div class="text-xs text-zinc-700 dark:text-zinc-300">{{ $notif->data['message'] ?? '-' }}</div>
+                            <div class="text-xs text-zinc-400 mt-0.5">{{ $notif->created_at->diffForHumans() }}</div>
+                        </flux:menu.item>
+                    @empty
+                        <div class="px-3 py-4 text-center text-xs text-zinc-400">Tidak ada notifikasi baru.</div>
+                    @endforelse
+                </flux:menu>
+            </flux:dropdown>
 
             <flux:dropdown position="top" align="end">
                 <flux:profile

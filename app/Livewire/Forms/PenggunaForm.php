@@ -15,6 +15,8 @@ class PenggunaForm extends Form
 
     public string $email = '';
 
+    public string $phone = '';
+
     public string $password = '';
 
     public string $password_confirmation = '';
@@ -29,6 +31,7 @@ class PenggunaForm extends Form
         $this->name = $user->name;
         $this->username = $user->username;
         $this->email = $user->email;
+        $this->phone = $user->phone ?? '';
         $this->opd_id = $user->opd_id;
         $this->role = $user->roles->first()?->name ?? '';
         $this->password = '';
@@ -41,6 +44,7 @@ class PenggunaForm extends Form
             'name' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'min:3', 'max:50', 'regex:/^[a-zA-Z0-9_]+$/'],
             'email' => ['required', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:20', 'regex:/^[0-9]+$/'],
             'opd_id' => ['nullable', 'exists:opds,id'],
             'role' => ['required', 'string'],
         ];

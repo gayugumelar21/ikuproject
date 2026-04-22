@@ -16,11 +16,12 @@ class PenggunaService
     public function store(array $data): User
     {
         $user = User::create([
-            'name' => $data['name'],
+            'name'     => $data['name'],
             'username' => $data['username'],
-            'email' => $data['email'],
+            'email'    => $data['email'],
+            'phone'    => $data['phone'] ?: null,
             'password' => Hash::make($data['password']),
-            'opd_id' => $data['opd_id'] ?? null,
+            'opd_id'   => $data['opd_id'] ?? null,
         ]);
 
         if (! empty($data['role'])) {
@@ -33,10 +34,11 @@ class PenggunaService
     public function update(User $user, array $data): User
     {
         $user->update([
-            'name' => $data['name'],
+            'name'     => $data['name'],
             'username' => $data['username'],
-            'email' => $data['email'],
-            'opd_id' => $data['opd_id'] ?? null,
+            'email'    => $data['email'],
+            'phone'    => $data['phone'] ?: null,
+            'opd_id'   => $data['opd_id'] ?? null,
         ]);
 
         if (! empty($data['password'])) {
