@@ -13,6 +13,11 @@ use Flux\Flux;
 
 new #[Title('IKU Kerjasama Lintas OPD')] class extends Component
 {
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasAnyRole(['kepala_bidang', 'kabag', 'kepala_dinas', 'asisten', 'sekda', 'bupati', 'admin_super']), 403);
+    }
+
     public ?int $filterTahunAnggaranId = null;
     public ?int $filterOpdId = null;
     public int $filterBulan;

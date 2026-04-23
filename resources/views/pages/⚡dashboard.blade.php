@@ -269,9 +269,9 @@ new #[Title('Dashboard IKU')] class extends Component
             </flux:text>
         </div>
 
-        <div class="flex items-center gap-2 flex-wrap">
+        <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {{-- Filter Unit --}}
-            <flux:select wire:model.live="filterUnitId" class="w-52" placeholder="Semua OPD">
+            <flux:select wire:model.live="filterUnitId" class="flex-1 min-w-[140px] sm:w-48" placeholder="Semua OPD">
                 <flux:select.option value="">— Semua OPD —</flux:select.option>
                 @foreach($this->unitOptions as $unit)
                     <flux:select.option value="{{ $unit->id }}">
@@ -281,16 +281,16 @@ new #[Title('Dashboard IKU')] class extends Component
             </flux:select>
 
             {{-- Filter Bulan --}}
-            <flux:select wire:model.live="bulan" class="w-36">
+            <flux:select wire:model.live="bulan" class="flex-1 min-w-[110px] sm:w-32">
                 @foreach(range(1,12) as $b)
                     <flux:select.option value="{{ $b }}">{{ $this->namaBulan($b) }}</flux:select.option>
                 @endforeach
             </flux:select>
 
-            <flux:input type="number" wire:model.live="tahun" class="w-24" min="2020" max="2100" />
+            <flux:input type="number" wire:model.live="tahun" class="w-20" min="2020" max="2100" />
 
             <flux:button icon="arrow-path" wire:click="hitungUlang" wire:loading.attr="disabled">
-                Hitung Ulang
+                <span class="hidden sm:inline">Hitung Ulang</span>
             </flux:button>
 
             <flux:button
@@ -298,7 +298,7 @@ new #[Title('Dashboard IKU')] class extends Component
                 variant="ghost"
                 :href="route('export.rekap', ['bulan' => $bulan, 'tahun' => $tahun])"
             >
-                Export CSV
+                <span class="hidden sm:inline">Export CSV</span>
             </flux:button>
         </div>
     </div>
@@ -328,7 +328,7 @@ new #[Title('Dashboard IKU')] class extends Component
     </div>
 
     {{-- Summary Cards --}}
-    <div class="grid grid-cols-2 gap-4 mb-6 sm:grid-cols-4">
+    <div class="grid grid-cols-2 gap-3 mb-6 lg:grid-cols-4">
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4">
             <div class="flex items-center gap-3">
                 <div class="p-2 rounded-lg bg-blue-100 dark:bg-blue-900">
@@ -380,18 +380,18 @@ new #[Title('Dashboard IKU')] class extends Component
 
     {{-- Tabel Rekap --}}
     <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden mb-6">
-        <div class="bg-zinc-50 dark:bg-zinc-800 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
-            <div>
+        <div class="bg-zinc-50 dark:bg-zinc-800 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between gap-2">
+            <div class="min-w-0">
                 <flux:heading size="sm">
                     @if($this->selectedUnit)
-                        Overview: {{ $this->selectedUnit->name }}
+                        Overview: {{ Str::limit($this->selectedUnit->name, 30) }}
                     @else
                         Rekap Skor OPD
                     @endif
                     — {{ $this->namaBulan($bulan) }} {{ $tahun }}
                 </flux:heading>
                 @if($this->selectedUnit)
-                    <p class="text-xs text-zinc-400 mt-0.5">
+                    <p class="text-xs text-zinc-400 mt-0.5 hidden sm:block">
                         Baris pertama = skor agregat unit, baris berikutnya = OPD/bagian di bawahnya
                     </p>
                 @endif
@@ -402,7 +402,7 @@ new #[Title('Dashboard IKU')] class extends Component
                 icon="arrow-down-tray"
                 :href="route('export.detail', ['bulan' => $bulan, 'tahun' => $tahun])"
             >
-                Detail CSV
+                <span class="hidden sm:inline">Detail CSV</span>
             </flux:button>
         </div>
 
@@ -416,16 +416,17 @@ new #[Title('Dashboard IKU')] class extends Component
                 </flux:callout>
             </div>
         @else
-            <table class="w-full text-sm">
+            <div class="overflow-x-auto">
+            <table class="w-full min-w-[600px] text-sm">
                 <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-xs">
                     <tr>
-                        <th class="px-4 py-3 text-left font-medium">#</th>
-                        <th class="px-4 py-3 text-left font-medium">Unit / OPD</th>
-                        <th class="px-4 py-3 text-center font-medium">Skor Utama</th>
-                        <th class="px-4 py-3 text-center font-medium">Skor Kerjasama</th>
-                        <th class="px-4 py-3 text-center font-medium">Skor Total</th>
-                        <th class="px-4 py-3 text-center font-medium">Performa</th>
-                        <th class="px-4 py-3 text-center font-medium">Aksi</th>
+                        <th class="px-3 py-3 text-left font-medium w-8">#</th>
+                        <th class="px-3 py-3 text-left font-medium">Unit / OPD</th>
+                        <th class="px-3 py-3 text-center font-medium whitespace-nowrap">Skor Utama</th>
+                        <th class="px-3 py-3 text-center font-medium whitespace-nowrap">Skor Kerja</th>
+                        <th class="px-3 py-3 text-center font-medium whitespace-nowrap">Total</th>
+                        <th class="px-3 py-3 text-center font-medium hidden md:table-cell">Performa</th>
+                        <th class="px-3 py-3 text-center font-medium">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -440,77 +441,57 @@ new #[Title('Dashboard IKU')] class extends Component
                         @endphp
                         <tr
                             wire:key="dash-{{ $summary->id }}"
-                            class="
-                                {{ $isTopUnit
-                                    ? 'bg-blue-50 dark:bg-blue-950/40 border-l-4 border-l-blue-500'
-                                    : ($isUnitLevel
-                                        ? 'bg-zinc-50/70 dark:bg-zinc-800/50'
-                                        : 'bg-white dark:bg-zinc-900') }}
-                                hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors
-                            "
+                            class="{{ $isTopUnit ? 'bg-blue-50 dark:bg-blue-950/40 border-l-4 border-l-blue-500' : ($isUnitLevel ? 'bg-zinc-50/70 dark:bg-zinc-800/50' : 'bg-white dark:bg-zinc-900') }} hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                         >
-                            <td class="px-4 py-3 text-zinc-500 text-xs">
+                            <td class="px-3 py-3 text-zinc-500 text-xs w-8">
                                 @if($isTopUnit)
                                     <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold">★</span>
                                 @else
                                     {{ $i + 1 }}
                                 @endif
                             </td>
-                            <td class="px-4 py-3">
-                                <div class="flex items-center gap-2">
-                                    @if($isTopUnit)
-                                        <span class="text-blue-600 text-base">🏛</span>
-                                    @elseif($isUnitLevel)
-                                        <span class="text-zinc-400 text-xs">📋</span>
+                            <td class="px-3 py-3">
+                                <div class="flex items-center gap-1.5">
+                                    @if($isTopUnit)<span class="shrink-0">🏛</span>
+                                    @elseif($isUnitLevel)<span class="shrink-0 text-zinc-400 text-xs">📋</span>
                                     @endif
-                                    <div>
-                                        <div class="font-{{ $isTopUnit ? 'bold' : 'medium' }} text-zinc-900 dark:text-zinc-100 text-sm {{ $isTopUnit ? 'text-blue-700 dark:text-blue-300' : '' }}">
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate {{ $isTopUnit ? 'text-blue-700 dark:text-blue-300 font-bold' : '' }}">
                                             {{ $summary->opd?->name ?? '-' }}
                                         </div>
                                         @if($isTopUnit)
-                                            <div class="text-xs text-blue-500 dark:text-blue-400">Skor Agregat Unit</div>
+                                            <div class="text-xs text-blue-500 dark:text-blue-400">Agregat Unit</div>
                                         @elseif($isUnitLevel)
                                             <div class="text-xs text-zinc-400">{{ ucfirst($opdType) }}</div>
                                         @endif
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-4 py-3 text-center">
-                                @if($summary->skor_utama !== null)
-                                    <span class="font-semibold text-zinc-700 dark:text-zinc-300">
-                                        {{ number_format($summary->skor_utama, 1) }}
-                                    </span>
-                                @else
-                                    <span class="text-zinc-400 text-xs">-</span>
-                                @endif
+                            <td class="px-3 py-3 text-center whitespace-nowrap">
+                                <span class="font-semibold text-zinc-700 dark:text-zinc-300 text-sm">
+                                    {{ $summary->skor_utama !== null ? number_format($summary->skor_utama, 1) : '-' }}
+                                </span>
                             </td>
-                            <td class="px-4 py-3 text-center">
-                                @if($summary->skor_kerjasama !== null)
-                                    <span class="font-semibold text-zinc-700 dark:text-zinc-300">
-                                        {{ number_format($summary->skor_kerjasama, 1) }}
-                                    </span>
-                                @else
-                                    <span class="text-zinc-400 text-xs">-</span>
-                                @endif
+                            <td class="px-3 py-3 text-center whitespace-nowrap">
+                                <span class="font-semibold text-zinc-700 dark:text-zinc-300 text-sm">
+                                    {{ $summary->skor_kerjasama !== null ? number_format($summary->skor_kerjasama, 1) : '-' }}
+                                </span>
                             </td>
-                            <td class="px-4 py-3 text-center">
+                            <td class="px-3 py-3 text-center whitespace-nowrap">
                                 @if($skor !== null)
-                                    <span class="text-xl font-bold {{ $color === 'green' ? 'text-green-600' : ($color === 'yellow' ? 'text-yellow-600' : 'text-red-600') }}">
+                                    <span class="text-lg font-bold {{ $color === 'green' ? 'text-green-600' : ($color === 'yellow' ? 'text-yellow-600' : 'text-red-600') }}">
                                         {{ number_format($skor, 1) }}
                                     </span>
                                     <span class="text-zinc-400 text-xs">/10</span>
                                 @else
-                                    <span class="text-zinc-400 text-xs">Belum dihitung</span>
+                                    <span class="text-zinc-400 text-xs">-</span>
                                 @endif
                             </td>
-                            <td class="px-4 py-3">
+                            <td class="px-3 py-3 hidden md:table-cell">
                                 @if($skor !== null)
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-2 min-w-[100px]">
                                         <div class="flex-1 bg-zinc-200 dark:bg-zinc-700 rounded-full h-2">
-                                            <div
-                                                class="h-2 rounded-full {{ $color === 'green' ? 'bg-green-500' : ($color === 'yellow' ? 'bg-yellow-500' : 'bg-red-500') }}"
-                                                style="width: {{ $pct }}%"
-                                            ></div>
+                                            <div class="h-2 rounded-full {{ $color === 'green' ? 'bg-green-500' : ($color === 'yellow' ? 'bg-yellow-500' : 'bg-red-500') }}" style="width: {{ $pct }}%"></div>
                                         </div>
                                         <flux:badge variant="{{ $color }}" size="sm">
                                             {{ $color === 'green' ? 'Baik' : ($color === 'yellow' ? 'Cukup' : 'Kurang') }}
@@ -520,7 +501,7 @@ new #[Title('Dashboard IKU')] class extends Component
                                     <flux:badge variant="zinc" size="sm">Pending</flux:badge>
                                 @endif
                             </td>
-                            <td class="px-4 py-3 text-center">
+                            <td class="px-3 py-3 text-center">
                                 <flux:button
                                     size="xs"
                                     variant="ghost"
@@ -534,19 +515,20 @@ new #[Title('Dashboard IKU')] class extends Component
                     @endforeach
                 </tbody>
             </table>
+            </div>
         @endif
     </div>
 
     {{-- ===== SCORING AGREGAT PER UNIT ===== --}}
     @if($this->skoringPerUnit->isNotEmpty())
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden mb-6">
-            <div class="bg-zinc-50 dark:bg-zinc-800 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <flux:icon name="trophy" class="size-4 text-indigo-500" />
-                    <flux:heading size="sm">Progres Scoring per Unit</flux:heading>
-                    <flux:badge size="sm" variant="blue">{{ $this->namaBulan($bulan) }} {{ $tahun }}</flux:badge>
+            <div class="bg-zinc-50 dark:bg-zinc-800 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 min-w-0">
+                    <flux:icon name="trophy" class="size-4 text-indigo-500 shrink-0" />
+                    <flux:heading size="sm" class="truncate">Progres Scoring per Unit</flux:heading>
+                    <flux:badge size="sm" variant="blue" class="shrink-0">{{ $this->namaBulan($bulan) }} {{ $tahun }}</flux:badge>
                 </div>
-                <p class="text-xs text-zinc-400">Hanya unit yang sudah punya data realisasi terverifikasi</p>
+                <p class="text-xs text-zinc-400 hidden lg:block shrink-0">Hanya unit yang sudah punya data realisasi terverifikasi</p>
             </div>
 
             <div class="p-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -676,41 +658,44 @@ new #[Title('Dashboard IKU')] class extends Component
     {{-- IKU Pending Skoring TA --}}
     @if($this->recentPendingSkoring->isNotEmpty())
         <div class="rounded-xl border border-yellow-200 dark:border-yellow-800 overflow-hidden">
-            <div class="bg-yellow-50 dark:bg-yellow-900/20 px-4 py-3 border-b border-yellow-200 dark:border-yellow-800 flex items-center justify-between">
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 px-4 py-3 border-b border-yellow-200 dark:border-yellow-800 flex items-center justify-between gap-2">
                 <div class="flex items-center gap-2">
-                    <flux:icon name="clock" class="size-4 text-yellow-600" />
+                    <flux:icon name="clock" class="size-4 text-yellow-600 shrink-0" />
                     <flux:heading size="sm">IKU Menunggu Skoring TA</flux:heading>
                 </div>
                 <flux:button size="sm" variant="ghost" :href="route('skoring-ta.index')" wire:navigate>
                     Lihat Semua →
                 </flux:button>
             </div>
-            <table class="w-full text-sm">
-                <thead class="bg-yellow-50/50 dark:bg-yellow-900/10 text-xs text-zinc-600 dark:text-zinc-400">
-                    <tr>
-                        <th class="px-4 py-2 text-left font-medium">Indikator</th>
-                        <th class="px-4 py-2 text-left font-medium">OPD</th>
-                        <th class="px-4 py-2 text-center font-medium">Skor AI</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-                    @foreach($this->recentPendingSkoring as $sk)
-                        <tr class="bg-white dark:bg-zinc-900">
-                            <td class="px-4 py-2.5 font-medium text-zinc-800 dark:text-zinc-200">
-                                {{ $sk->indikator?->nama }}
-                            </td>
-                            <td class="px-4 py-2.5 text-xs text-zinc-500">
-                                {{ $sk->indikator?->opd?->name }} / {{ $sk->indikator?->bidang?->name }}
-                            </td>
-                            <td class="px-4 py-2.5 text-center">
-                                <flux:badge variant="{{ $sk->skor_ai >= 7 ? 'green' : ($sk->skor_ai >= 5 ? 'yellow' : 'red') }}" size="sm">
-                                    {{ $sk->skor_ai }}/10
-                                </flux:badge>
-                            </td>
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[420px] text-sm">
+                    <thead class="bg-yellow-50/50 dark:bg-yellow-900/10 text-xs text-zinc-600 dark:text-zinc-400">
+                        <tr>
+                            <th class="px-4 py-2 text-left font-medium">Indikator</th>
+                            <th class="px-4 py-2 text-left font-medium hidden sm:table-cell">OPD / Bidang</th>
+                            <th class="px-4 py-2 text-center font-medium">Skor AI</th>
                         </tr>
-                    @endforeach
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                        @foreach($this->recentPendingSkoring as $sk)
+                            <tr class="bg-white dark:bg-zinc-900">
+                                <td class="px-4 py-2.5 font-medium text-zinc-800 dark:text-zinc-200">
+                                    <div class="line-clamp-2">{{ $sk->indikator?->nama }}</div>
+                                    <div class="text-xs text-zinc-400 mt-0.5 sm:hidden">{{ $sk->indikator?->opd?->name }}</div>
+                                </td>
+                                <td class="px-4 py-2.5 text-xs text-zinc-500 hidden sm:table-cell">
+                                    {{ $sk->indikator?->opd?->name }} / {{ $sk->indikator?->bidang?->name }}
+                                </td>
+                                <td class="px-4 py-2.5 text-center whitespace-nowrap">
+                                    <flux:badge variant="{{ $sk->skor_ai >= 7 ? 'green' : ($sk->skor_ai >= 5 ? 'yellow' : 'red') }}" size="sm">
+                                        {{ $sk->skor_ai }}/10
+                                    </flux:badge>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
         </div>
     @endif
 </div>

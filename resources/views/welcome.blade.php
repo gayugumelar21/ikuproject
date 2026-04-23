@@ -21,9 +21,7 @@
         <header class="w-full border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 sticky top-0 z-50">
             <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <div class="flex items-center justify-center size-8 rounded-md bg-zinc-900 dark:bg-white">
-                        <x-app-logo-icon class="size-5 fill-current text-white dark:text-black" />
-                    </div>
+                    <img src="{{ asset('img/logo.png') }}" alt="Logo" class="size-8 object-contain" />
                     <span class="font-semibold text-sm tracking-tight">{{ config('app.name', 'Sistem IKU') }}</span>
                 </div>
 
@@ -47,13 +45,13 @@
 
         {{-- Hero Section --}}
         <main>
-            <section class="max-w-6xl mx-auto px-6 py-20 text-center">
+            <section class="max-w-6xl mx-auto px-4 sm:px-6 py-12 sm:py-20 text-center">
                 <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-100 dark:bg-neutral-800 text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-6">
                     <span class="size-1.5 rounded-full bg-green-500"></span>
                     Sistem Informasi Pemerintah Daerah
                 </div>
 
-                <h1 class="text-4xl lg:text-5xl font-semibold tracking-tight text-neutral-900 dark:text-white mb-5 leading-tight">
+                <h1 class="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-neutral-900 dark:text-white mb-5 leading-tight">
                     Sistem IKU<br>
                     <span class="text-neutral-500 dark:text-neutral-400">Kabupaten Pringsewu</span>
                 </h1>

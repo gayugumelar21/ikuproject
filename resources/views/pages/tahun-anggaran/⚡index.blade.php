@@ -15,6 +15,11 @@ new #[Title('Tahun Anggaran')] class extends Component {
 
     private TahunAnggaranService $service;
 
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasRole('admin_super'), 403);
+    }
+
     public function boot(TahunAnggaranService $service): void
     {
         $this->service = $service;

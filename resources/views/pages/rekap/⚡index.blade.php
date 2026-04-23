@@ -172,15 +172,14 @@ new class extends Component
 ?>
 
 <div>
-    <div class="flex items-center justify-between mb-6">
-        <div>
+    <div class="flex flex-col gap-3 mb-6 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
             <flux:heading size="xl">Rekap Capaian</flux:heading>
             <flux:text class="mt-1 text-zinc-500">
                 @if($this->selectedUnit)
-                    Overview <span class="font-semibold text-blue-600 dark:text-blue-400">{{ $this->selectedUnit->name }}</span>
-                    dan OPD di bawahnya.
+                    Overview <span class="font-semibold text-blue-600 dark:text-blue-400">{{ Str::limit($this->selectedUnit->name, 40) }}</span>.
                 @else
-                    Rangkuman capaian indikator kinerja — Sekda, Asisten, dan seluruh OPD.
+                    Rangkuman capaian indikator kinerja seluruh OPD.
                 @endif
             </flux:text>
         </div>
@@ -191,6 +190,7 @@ new class extends Component
                 wire:click="hitungUlang"
                 wire:loading.attr="disabled"
                 wire:confirm="Hitung ulang rekap capaian untuk bulan ini?"
+                class="shrink-0"
             >
                 <span wire:loading.remove wire:target="hitungUlang">Hitung Ulang</span>
                 <span wire:loading wire:target="hitungUlang">Menghitung...</span>
@@ -283,7 +283,7 @@ new class extends Component
 
     {{-- Kartu Ringkasan --}}
     @if ($filterTahunAnggaranId && $this->rekaps->isNotEmpty())
-        <div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div class="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-4">
                 <div class="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wide mb-1">Rata-rata Capaian</div>
                 @php
@@ -319,17 +319,17 @@ new class extends Component
     @endif
 
     {{-- Tabel Rekap --}}
-    <div class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
-        <table class="w-full text-sm">
-            <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+    <div class="overflow-x-auto">
+        <table class="w-full min-w-[600px] text-sm">
+            <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-xs">
                 <tr>
-                    <th class="px-4 py-3 text-left font-medium">#</th>
-                    <th class="px-4 py-3 text-left font-medium">Unit / OPD</th>
-                    <th class="px-4 py-3 text-right font-medium">Jml. Indikator</th>
-                    <th class="px-4 py-3 text-right font-medium">Indikator Tercapai</th>
-                    <th class="px-4 py-3 text-right font-medium">Total Target</th>
-                    <th class="px-4 py-3 text-right font-medium">Total Realisasi</th>
-                    <th class="px-4 py-3 text-right font-medium">Persentase</th>
+                    <th class="px-3 py-3 text-left font-medium w-8">#</th>
+                    <th class="px-3 py-3 text-left font-medium">Unit / OPD</th>
+                    <th class="px-3 py-3 text-right font-medium whitespace-nowrap hidden sm:table-cell">Jml. IKU</th>
+                    <th class="px-3 py-3 text-right font-medium whitespace-nowrap hidden md:table-cell">IKU Tercapai</th>
+                    <th class="px-3 py-3 text-right font-medium whitespace-nowrap hidden lg:table-cell">Target</th>
+                    <th class="px-3 py-3 text-right font-medium whitespace-nowrap hidden lg:table-cell">Realisasi</th>
+                    <th class="px-3 py-3 text-right font-medium whitespace-nowrap">Capaian %</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -345,49 +345,40 @@ new class extends Component
                     @endphp
                     <tr
                         wire:key="rekap-{{ $rekap->id }}"
-                        class="
-                            {{ $isTopUnit
-                                ? 'bg-blue-50 dark:bg-blue-950/40 border-l-4 border-l-blue-500'
-                                : ($isUnitLvl
-                                    ? 'bg-zinc-50/70 dark:bg-zinc-800/40'
-                                    : 'bg-white dark:bg-zinc-900') }}
-                            hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors
-                        "
+                        class="{{ $isTopUnit ? 'bg-blue-50 dark:bg-blue-950/40 border-l-4 border-l-blue-500' : ($isUnitLvl ? 'bg-zinc-50/70 dark:bg-zinc-800/40' : 'bg-white dark:bg-zinc-900') }} hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                     >
-                        <td class="px-4 py-3 text-zinc-500">
+                        <td class="px-3 py-3 text-zinc-500 text-xs w-8">
                             @if($isTopUnit)
                                 <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold">★</span>
                             @else
                                 {{ $i + 1 }}
                             @endif
                         </td>
-                        <td class="px-4 py-3">
-                            <div class="flex items-center gap-2">
-                                @if($isTopUnit)
-                                    <span class="text-blue-500">{{ $rekap->opd?->type === 'sekda' ? '🏛' : '📋' }}</span>
-                                @elseif($isUnitLvl)
-                                    <span class="text-zinc-400 text-xs">📋</span>
+                        <td class="px-3 py-3">
+                            <div class="flex items-center gap-1.5">
+                                @if($isTopUnit)<span class="shrink-0">{{ $rekap->opd?->type === 'sekda' ? '🏛' : '📋' }}</span>
+                                @elseif($isUnitLvl)<span class="shrink-0 text-zinc-400 text-xs">📋</span>
                                 @endif
-                                <div>
-                                    <span class="font-{{ $isTopUnit ? 'bold' : 'medium' }} {{ $isTopUnit ? 'text-blue-700 dark:text-blue-300' : 'text-zinc-900 dark:text-zinc-100' }}">
+                                <div class="min-w-0">
+                                    <div class="text-sm font-medium truncate {{ $isTopUnit ? 'text-blue-700 dark:text-blue-300 font-bold' : 'text-zinc-900 dark:text-zinc-100' }}">
                                         {{ $rekap->opd?->name ?? '-' }}
-                                    </span>
-                                    @if($isTopUnit)
-                                        <div class="text-xs text-blue-500 dark:text-blue-400">Skor Agregat Unit</div>
-                                    @elseif($isUnitLvl)
-                                        <div class="text-xs text-zinc-400">{{ ucfirst($opdType) }}</div>
+                                    </div>
+                                    <div class="text-xs text-zinc-400 sm:hidden">
+                                        IKU: {{ number_format($rekap->jumlah_indikator) }} |
+                                        Tercapai: {{ number_format($rekap->indikator_tercapai) }}
+                                    </div>
+                                    @if($isTopUnit)<div class="text-xs text-blue-500 dark:text-blue-400">Agregat Unit</div>
+                                    @elseif($isUnitLvl)<div class="text-xs text-zinc-400">{{ ucfirst($opdType) }}</div>
                                     @endif
                                 </div>
                             </div>
                         </td>
-                        <td class="px-4 py-3 text-right text-zinc-600 dark:text-zinc-300">{{ number_format($rekap->jumlah_indikator) }}</td>
-                        <td class="px-4 py-3 text-right text-zinc-600 dark:text-zinc-300">{{ number_format($rekap->indikator_tercapai) }}</td>
-                        <td class="px-4 py-3 text-right text-zinc-600 dark:text-zinc-300">{{ number_format($rekap->total_target, 2) }}</td>
-                        <td class="px-4 py-3 text-right text-zinc-600 dark:text-zinc-300">{{ number_format($rekap->total_realisasi, 2) }}</td>
-                        <td class="px-4 py-3 text-right">
-                            <span class="font-semibold {{ $pctClass }}">
-                                {{ number_format($pct, 2) }}%
-                            </span>
+                        <td class="px-3 py-3 text-right text-zinc-600 dark:text-zinc-300 hidden sm:table-cell">{{ number_format($rekap->jumlah_indikator) }}</td>
+                        <td class="px-3 py-3 text-right text-zinc-600 dark:text-zinc-300 hidden md:table-cell">{{ number_format($rekap->indikator_tercapai) }}</td>
+                        <td class="px-3 py-3 text-right text-zinc-600 dark:text-zinc-300 hidden lg:table-cell">{{ number_format($rekap->total_target, 2) }}</td>
+                        <td class="px-3 py-3 text-right text-zinc-600 dark:text-zinc-300 hidden lg:table-cell">{{ number_format($rekap->total_realisasi, 2) }}</td>
+                        <td class="px-3 py-3 text-right whitespace-nowrap">
+                            <span class="font-bold text-base {{ $pctClass }}">{{ number_format($pct, 1) }}%</span>
                         </td>
                     </tr>
                 @empty
@@ -396,7 +387,7 @@ new class extends Component
                             @if (! $filterTahunAnggaranId)
                                 Pilih tahun anggaran dan bulan untuk melihat rekap capaian.
                             @else
-                                Belum ada data rekap untuk filter yang dipilih. Klik "Hitung Ulang" untuk menghitung.
+                                Belum ada data rekap. Klik "Hitung Ulang" untuk menghitung.
                             @endif
                         </td>
                     </tr>

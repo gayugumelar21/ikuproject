@@ -23,6 +23,7 @@ new #[Title('Skoring Bupati')] class extends Component
 
     public function mount(): void
     {
+        abort_unless(auth()->user()->hasAnyRole(['bupati', 'admin_super']), 403);
         $this->bulan = (int) now()->format('n');
         $this->tahun = (int) now()->format('Y');
     }
@@ -91,10 +92,10 @@ new #[Title('Skoring Bupati')] class extends Component
         </div>
 
         {{-- Filter Bulan & Tahun --}}
-        <div class="flex flex-wrap gap-3">
-            <flux:field>
+        <div class="flex flex-wrap gap-3 w-full sm:w-auto">
+            <flux:field class="flex-1 min-w-[150px]">
                 <flux:label>Unit / OPD</flux:label>
-                <flux:select wire:model.live="filterOpdId" class="w-64">
+                <flux:select wire:model.live="filterOpdId">
                     <flux:select.option value="">-- Semua Unit --</flux:select.option>
                     @foreach ($this->filterOpds as $opd)
                         <flux:select.option wire:key="filter-opd-{{ $opd->id }}" value="{{ $opd->id }}">
@@ -103,17 +104,17 @@ new #[Title('Skoring Bupati')] class extends Component
                     @endforeach
                 </flux:select>
             </flux:field>
-            <flux:field>
+            <flux:field class="flex-1 min-w-[110px]">
                 <flux:label>Bulan</flux:label>
-                <flux:select wire:model.live="bulan" class="w-36">
+                <flux:select wire:model.live="bulan">
                     @foreach (['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] as $idx => $nama)
                         <flux:select.option value="{{ $idx + 1 }}">{{ $nama }}</flux:select.option>
                     @endforeach
                 </flux:select>
             </flux:field>
-            <flux:field>
+            <flux:field class="w-24">
                 <flux:label>Tahun</flux:label>
-                <flux:input type="number" wire:model.live="tahun" class="w-24" min="2020" max="2030" />
+                <flux:input type="number" wire:model.live="tahun" min="2020" max="2030" />
             </flux:field>
         </div>
     </div>
@@ -276,43 +277,43 @@ new #[Title('Skoring Bupati')] class extends Component
     <div x-show="tab === 'sudah'">
         @if ($this->skoringsSudahDinilai->isNotEmpty())
             <div class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
-                <table class="w-full text-sm">
-                    <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                <table class="w-full min-w-[520px] text-sm">
+                    <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-xs">
                         <tr>
-                            <th class="px-4 py-3 text-left font-medium">OPD / Bidang</th>
-                            <th class="px-4 py-3 text-left font-medium">Indikator</th>
-                            <th class="px-4 py-3 text-center font-medium">Bobot %</th>
-                            <th class="px-4 py-3 text-center font-medium">Skor Final</th>
-                            <th class="px-4 py-3 text-center font-medium">AI</th>
-                            <th class="px-4 py-3 text-center font-medium">TA</th>
-                            <th class="px-4 py-3 text-left font-medium">Catatan Bupati</th>
-                            <th class="px-4 py-3 text-left font-medium">Finalisasi</th>
+                            <th class="px-3 py-3 text-left font-medium">Indikator / OPD</th>
+                            <th class="px-3 py-3 text-center font-medium whitespace-nowrap">Skor Final</th>
+                            <th class="px-3 py-3 text-center font-medium hidden sm:table-cell">AI</th>
+                            <th class="px-3 py-3 text-center font-medium hidden sm:table-cell">TA</th>
+                            <th class="px-3 py-3 text-left font-medium hidden md:table-cell">Catatan</th>
+                            <th class="px-3 py-3 text-left font-medium hidden lg:table-cell whitespace-nowrap">Tanggal</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                         @foreach ($this->skoringsSudahDinilai as $skoring)
+                            @php $color = $skoring->skor_bupati >= 7 ? 'green' : ($skoring->skor_bupati >= 5 ? 'yellow' : 'red'); @endphp
                             <tr wire:key="final-{{ $skoring->id }}" class="bg-white dark:bg-zinc-900">
-                                <td class="px-4 py-3">
-                                    <div class="text-xs font-medium text-zinc-900 dark:text-zinc-100">{{ $skoring->indikator->opd?->name ?? '-' }}</div>
-                                    <div class="text-xs text-zinc-500">{{ $skoring->indikator->bidang?->name ?? '-' }}</div>
+                                <td class="px-3 py-3">
+                                    <div class="font-medium text-zinc-900 dark:text-zinc-100 text-sm line-clamp-2">{{ $skoring->indikator->nama }}</div>
+                                    <div class="text-xs text-zinc-500 mt-0.5">
+                                        {{ $skoring->indikator->opd?->name ?? '-' }} · {{ $skoring->indikator->bobot }}%
+                                    </div>
+                                    <div class="flex items-center gap-2 mt-1 sm:hidden">
+                                        <span class="text-xs text-zinc-400">AI: {{ $skoring->skor_ai ?? '-' }}</span>
+                                        <span class="text-xs text-zinc-400">TA: {{ $skoring->skor_ta ?? '-' }}</span>
+                                    </div>
                                 </td>
-                                <td class="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100 max-w-xs">
-                                    {{ $skoring->indikator->nama }}
-                                </td>
-                                <td class="px-4 py-3 text-center text-zinc-600 dark:text-zinc-300">{{ $skoring->indikator->bobot }}%</td>
-                                <td class="px-4 py-3 text-center">
-                                    @php
-                                        $color = $skoring->skor_bupati >= 7 ? 'green' : ($skoring->skor_bupati >= 5 ? 'yellow' : 'red');
-                                    @endphp
-                                    <flux:badge variant="{{ $color }}" size="sm" class="text-base font-bold px-3 py-1">
+                                <td class="px-3 py-3 text-center whitespace-nowrap">
+                                    <flux:badge variant="{{ $color }}" size="sm" class="font-bold">
                                         {{ $skoring->skor_bupati }}/10
                                     </flux:badge>
                                 </td>
-                                <td class="px-4 py-3 text-center text-zinc-500">{{ $skoring->skor_ai ?? '-' }}</td>
-                                <td class="px-4 py-3 text-center text-zinc-500">{{ $skoring->skor_ta ?? '-' }}</td>
-                                <td class="px-4 py-3 text-xs text-zinc-500 max-w-xs">{{ $skoring->bupati_notes ?? '-' }}</td>
-                                <td class="px-4 py-3 text-xs text-zinc-400">
-                                    {{ $skoring->finalized_at?->format('d/m/Y H:i') ?? '-' }}
+                                <td class="px-3 py-3 text-center text-zinc-500 hidden sm:table-cell">{{ $skoring->skor_ai ?? '-' }}</td>
+                                <td class="px-3 py-3 text-center text-zinc-500 hidden sm:table-cell">{{ $skoring->skor_ta ?? '-' }}</td>
+                                <td class="px-3 py-3 text-xs text-zinc-500 hidden md:table-cell max-w-[180px]">
+                                    <p class="line-clamp-2">{{ $skoring->bupati_notes ?? '-' }}</p>
+                                </td>
+                                <td class="px-3 py-3 text-xs text-zinc-400 hidden lg:table-cell whitespace-nowrap">
+                                    {{ $skoring->finalized_at?->format('d/m/Y') ?? '-' }}
                                 </td>
                             </tr>
                         @endforeach

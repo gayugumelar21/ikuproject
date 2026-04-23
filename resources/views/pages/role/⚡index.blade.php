@@ -8,6 +8,11 @@ use Spatie\Permission\Models\Permission;
 use Flux\Flux;
 
 new #[Title('Kelola Role')] class extends Component {
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasRole('admin_super'), 403);
+    }
+
     public string $roleName = '';
 
     public string $roleDisplayName = '';
@@ -121,8 +126,8 @@ new #[Title('Kelola Role')] class extends Component {
         @endif
     </div>
 
-    <div class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
-        <table class="w-full text-sm text-left">
+    <div class="overflow-x-auto">
+        <table class="w-full min-w-[600px] text-sm">
             <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 text-xs uppercase">
                 <tr>
                     <th class="px-4 py-3">Nama Role</th>

@@ -101,7 +101,7 @@ class DummyAsisten1Seeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
-        $userAsisten1->assignRole('kepala_bidang');
+        $userAsisten1->syncRoles(['asisten']);
 
         $userKabagTapem = User::firstOrCreate(
             ['username' => 'kabag_tapem'],
@@ -113,7 +113,7 @@ class DummyAsisten1Seeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
-        $userKabagTapem->assignRole('kepala_bidang');
+        $userKabagTapem->syncRoles(['kabag']);
 
         $userKabagKesra = User::firstOrCreate(
             ['username' => 'kabag_kesra'],
@@ -125,7 +125,7 @@ class DummyAsisten1Seeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
-        $userKabagKesra->assignRole('kepala_bidang');
+        $userKabagKesra->syncRoles(['kabag']);
 
         $userKabagHukum = User::firstOrCreate(
             ['username' => 'kabag_hukum'],
@@ -137,7 +137,7 @@ class DummyAsisten1Seeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
-        $userKabagHukum->assignRole('kepala_bidang');
+        $userKabagHukum->syncRoles(['kabag']);
 
         $dibuatOleh = $admin?->id ?? $userAsisten1->id;
 

@@ -4,26 +4,56 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Laravel\Fortify\Contracts\LoginResponse;
 use Laravel\Fortify\Fortify;
 
 class FortifyServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
-        //
+        $this->app->singleton(LoginResponse::class, function () {
+            return new class implements LoginResponse
+            {
+                public function toResponse($request)
+                {
+                    /** @var User $user */
+                    $user = $request->user();
+
+                    if (! $user->is_active) {
+                        auth()->logout();
+                        $request->session()->invalidate();
+                        $request->session()->regenerateToken();
+
+                        return redirect()->route('login')->withErrors(['email' => 'Akun Anda tidak aktif. Hubungi administrator.']);
+                    }
+
+                    $user->update(['last_login_at' => now()]);
+
+                    if ($user->must_change_password) {
+                        return redirect()->route('ganti-password');
+                    }
+
+                    return match (true) {
+                        $user->hasRole('admin_super') => redirect()->route('dashboard'),
+                        $user->hasRole('bupati') => redirect()->route('skoring-bupati.index'),
+                        $user->hasRole('sekda') => redirect()->route('rekap.index'),
+                        $user->hasRole('asisten') => redirect()->route('rekap.index'),
+                        $user->hasRole('kepala_dinas') => redirect()->route('indikator.index'),
+                        $user->hasRole('kepala_bidang') => redirect()->route('realisasi.index'),
+                        $user->hasRole('kabag') => redirect()->route('realisasi.index'),
+                        default => redirect()->route('dashboard'),
+                    };
+                }
+            };
+        });
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
         $this->configureActions();
@@ -31,18 +61,12 @@ class FortifyServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
     }
 
-    /**
-     * Configure Fortify actions.
-     */
     private function configureActions(): void
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::createUsersUsing(CreateNewUser::class);
     }
 
-    /**
-     * Configure Fortify views.
-     */
     private function configureViews(): void
     {
         Fortify::loginView(fn () => view('pages::auth.login'));
@@ -54,9 +78,6 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::requestPasswordResetLinkView(fn () => view('pages::auth.forgot-password'));
     }
 
-    /**
-     * Configure rate limiting.
-     */
     private function configureRateLimiting(): void
     {
         RateLimiter::for('two-factor', function (Request $request) {

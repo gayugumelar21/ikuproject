@@ -10,8 +10,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Flux\Flux;
 
-new class extends Component
-{
+new class extends Component {
     public IndikatorForm $form;
 
     public ?int $filterTahunAnggaranId = null;
@@ -27,6 +26,12 @@ new class extends Component
 
     public function mount(): void
     {
+        abort_unless(
+            auth()
+                ->user()
+                ->hasAnyRole(['kepala_bidang', 'kabag', 'kepala_dinas', 'asisten', 'sekda', 'bupati', 'admin_super']),
+            403,
+        );
         $aktif = TahunAnggaran::aktif()->first();
         $this->filterTahunAnggaranId = $aktif?->id;
     }
@@ -40,7 +45,7 @@ new class extends Component
     #[Computed]
     public function indikators(): \Illuminate\Support\Collection
     {
-        if (! $this->filterTahunAnggaranId) {
+        if (!$this->filterTahunAnggaranId) {
             return collect();
         }
 
@@ -49,8 +54,10 @@ new class extends Component
             ->where('category', 'utama')
             ->when($this->filterOpdId, function ($q) {
                 $opd = Opd::find($this->filterOpdId);
-                if (!$opd) return $q;
-                return match($opd->type) {
+                if (!$opd) {
+                    return $q;
+                }
+                return match ($opd->type) {
                     'sekda' => $q->where('sekda_id', $opd->id),
                     'asisten' => $q->where('asisten_id', $opd->id),
                     'opd' => $q->where('opd_id', $opd->id),
@@ -65,7 +72,9 @@ new class extends Component
     #[Computed]
     public function filterOpds(): \Illuminate\Support\Collection
     {
-        return Opd::whereIn('type', ['sekda', 'asisten', 'opd', 'kabag'])->orderBy('name')->get();
+        return Opd::whereIn('type', ['sekda', 'asisten', 'opd', 'kabag'])
+            ->orderBy('name')
+            ->get();
     }
 
     #[Computed]
@@ -77,7 +86,7 @@ new class extends Component
     #[Computed]
     public function asistens(): \Illuminate\Support\Collection
     {
-        if (! $this->form->sekda_id) {
+        if (!$this->form->sekda_id) {
             return collect();
         }
 
@@ -87,7 +96,7 @@ new class extends Component
     #[Computed]
     public function opds(): \Illuminate\Support\Collection
     {
-        if (! $this->form->asisten_id) {
+        if (!$this->form->asisten_id) {
             return collect();
         }
 
@@ -97,7 +106,7 @@ new class extends Component
     #[Computed]
     public function bidangs(): \Illuminate\Support\Collection
     {
-        if (! $this->form->opd_id) {
+        if (!$this->form->opd_id) {
             return collect();
         }
 
@@ -240,75 +249,74 @@ new class extends Component
     </div>
 
     {{-- Tabel Indikator --}}
-    <div class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
-        <table class="w-full text-sm">
-            <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+    <div class="overflow-x-auto">
+        <table class="w-full min-w-[600px] text-sm">
+            <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-xs">
                 <tr>
-                    <th class="px-4 py-3 text-left font-medium">#</th>
-                    <th class="px-4 py-3 text-left font-medium">Nama Indikator</th>
-                    <th class="px-4 py-3 text-center font-medium">Kategori</th>
-                    <th class="px-4 py-3 text-left font-medium">Tipe</th>
-                    <th class="px-4 py-3 text-left font-medium">Owner</th>
-                    <th class="px-4 py-3 text-left font-medium">Satuan</th>
-                    <th class="px-4 py-3 text-right font-medium">Target</th>
-                    <th class="px-4 py-3 text-right font-medium">Bobot (%)</th>
-                    <th class="px-4 py-3 text-left font-medium">Jalur</th>
-                    <th class="px-4 py-3 text-center font-medium">Status</th>
-                    <th class="px-4 py-3 text-center font-medium">Aksi</th>
+                    <th class="px-3 py-3 text-left font-medium w-8">#</th>
+                    <th class="px-3 py-3 text-left font-medium">Nama Indikator</th>
+                    <th class="px-3 py-3 text-left font-medium hidden md:table-cell">Tipe</th>
+                    <th class="px-3 py-3 text-right font-medium hidden sm:table-cell whitespace-nowrap">Target</th>
+                    <th class="px-3 py-3 text-right font-medium whitespace-nowrap">Bobot</th>
+                    <th class="px-3 py-3 text-left font-medium hidden lg:table-cell">Jalur</th>
+                    <th class="px-3 py-3 text-center font-medium">Status</th>
+                    <th class="px-3 py-3 text-center font-medium">Aksi</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                 @forelse ($this->indikators as $i => $indikator)
-                    <tr wire:key="indikator-{{ $indikator->id }}" class="bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                        <td class="px-4 py-3 text-zinc-500">{{ $i + 1 }}</td>
-                        <td class="px-4 py-3">
-                            <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $indikator->nama }}</div>
+                    <tr wire:key="indikator-{{ $indikator->id }}"
+                        class="bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
+                        <td class="px-3 py-3 text-zinc-500 text-xs w-8">{{ $i + 1 }}</td>
+                        <td class="px-3 py-3">
+                            <div class="font-medium text-zinc-900 dark:text-zinc-100 text-sm line-clamp-2">
+                                {{ $indikator->nama }}</div>
+                            <div class="text-xs text-zinc-500 mt-0.5">
+                                {{ $indikator->opd?->name ?? '-' }}
+                                @if ($indikator->satuan)
+                                    · {{ $indikator->satuan }}
+                                @endif
+                            </div>
                             @if ($indikator->kerjasamas->isNotEmpty())
-                                <div class="text-xs text-amber-500 mt-0.5 flex items-center gap-1">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>
-                                    Kerjasama: {{ $indikator->kerjasamas->pluck('opd.name')->filter()->join(', ') }}
+                                <div class="text-xs text-amber-500 mt-0.5">
+                                    Kerjasama: {{ $indikator->kerjasamas->pluck('opd.name')->filter()->implode(', ') }}
                                 </div>
-                            @elseif ($indikator->definisi)
-                                <div class="text-xs text-zinc-500 mt-0.5 line-clamp-1">{{ $indikator->definisi }}</div>
                             @endif
+                            <div class="flex gap-2 mt-1 md:hidden">
+                                @if ($indikator->measurement_type === 'kualitatif')
+                                    <flux:badge variant="blue" size="sm">Kualitatif</flux:badge>
+                                @else
+                                    <flux:badge variant="green" size="sm">Kuantitatif</flux:badge>
+                                @endif
+                            </div>
                         </td>
-                        <td class="px-4 py-3 text-center">
-                            <flux:badge variant="zinc" size="sm">Utama</flux:badge>
-                        </td>
-                        <td class="px-4 py-3">
+                        <td class="px-3 py-3 hidden md:table-cell">
                             @if ($indikator->measurement_type === 'kualitatif')
                                 <flux:badge variant="blue" size="sm">Kualitatif</flux:badge>
                             @else
                                 <flux:badge variant="green" size="sm">Kuantitatif</flux:badge>
                             @endif
                         </td>
-                        <td class="px-4 py-3 text-zinc-600 dark:text-zinc-300 text-xs">
-                            {{ $indikator->owner?->name ?? '-' }}
-                        </td>
-                        <td class="px-4 py-3 text-zinc-600 dark:text-zinc-300">{{ $indikator->satuan }}</td>
-                        <td class="px-4 py-3 text-right text-zinc-600 dark:text-zinc-300">
+                        <td
+                            class="px-3 py-3 text-right text-zinc-600 dark:text-zinc-300 hidden sm:table-cell whitespace-nowrap text-xs">
                             @if ($indikator->measurement_type === 'kuantitatif')
                                 {{ number_format($indikator->target, 2) }}
                             @else
-                                <span class="text-zinc-400 italic text-xs">Kualitatif</span>
+                                <span class="text-zinc-400 italic">-</span>
                             @endif
                         </td>
-                        <td class="px-4 py-3 text-right font-medium text-zinc-700 dark:text-zinc-200">{{ number_format($indikator->bobot, 2) }}%</td>
-                        <td class="px-4 py-3 text-xs text-zinc-500 dark:text-zinc-400">
-                            @if ($indikator->sekda)
-                                <div>Sekda: {{ $indikator->sekda->name }}</div>
-                            @endif
+                        <td
+                            class="px-3 py-3 text-right font-semibold text-zinc-700 dark:text-zinc-200 whitespace-nowrap text-xs">
+                            {{ number_format($indikator->bobot, 1) }}%</td>
+                        <td class="px-3 py-3 text-xs text-zinc-500 dark:text-zinc-400 hidden lg:table-cell">
                             @if ($indikator->asisten)
-                                <div>Asisten: {{ $indikator->asisten->name }}</div>
+                                <div class="truncate max-w-[140px]">{{ $indikator->asisten->name }}</div>
                             @endif
                             @if ($indikator->opd)
-                                <div>OPD: {{ $indikator->opd->name }}</div>
-                            @endif
-                            @if ($indikator->bidang)
-                                <div>Bidang: {{ $indikator->bidang->name }}</div>
+                                <div class="truncate max-w-[140px] text-zinc-400">{{ $indikator->opd->name }}</div>
                             @endif
                         </td>
-                        <td class="px-4 py-3 text-center">
+                        <td class="px-3 py-3 text-center whitespace-nowrap">
                             @php
                                 $badgeVariant = match ($indikator->status) {
                                     'draft' => 'zinc',
@@ -318,41 +326,27 @@ new class extends Component
                                     default => 'zinc',
                                 };
                             @endphp
-                            <flux:badge variant="{{ $badgeVariant }}" size="sm">
-                                {{ ucfirst($indikator->status) }}
+                            <flux:badge variant="{{ $badgeVariant }}" size="sm">{{ ucfirst($indikator->status) }}
                             </flux:badge>
                         </td>
                         <td class="px-4 py-3">
                             <div class="flex items-center justify-center gap-2">
                                 @can('ajukan-indikator')
                                     @if ($indikator->status === 'draft')
-                                        <flux:button
-                                            size="xs"
-                                            variant="ghost"
-                                            wire:click="ajukan({{ $indikator->id }})"
-                                            wire:confirm="Ajukan indikator ini?"
-                                        >
+                                        <flux:button size="xs" variant="ghost"
+                                            wire:click="ajukan({{ $indikator->id }})" wire:confirm="Ajukan indikator ini?">
                                             Ajukan
                                         </flux:button>
                                     @endif
                                 @endcan
                                 @can('edit-indikator')
-                                    <flux:button
-                                        size="xs"
-                                        icon="pencil"
-                                        variant="ghost"
-                                        wire:click="bukaModalEdit({{ $indikator->id }})"
-                                    />
+                                    <flux:button size="xs" icon="pencil" variant="ghost"
+                                        wire:click="bukaModalEdit({{ $indikator->id }})" />
                                 @endcan
                                 @can('hapus-indikator')
-                                    <flux:button
-                                        size="xs"
-                                        icon="trash"
-                                        variant="ghost"
-                                        class="text-red-500 hover:text-red-700"
-                                        wire:click="hapus({{ $indikator->id }})"
-                                        wire:confirm="Yakin ingin menghapus indikator ini?"
-                                    />
+                                    <flux:button size="xs" icon="trash" variant="ghost"
+                                        class="text-red-500 hover:text-red-700" wire:click="hapus({{ $indikator->id }})"
+                                        wire:confirm="Yakin ingin menghapus indikator ini?" />
                                 @endcan
                             </div>
                         </td>
@@ -360,7 +354,7 @@ new class extends Component
                 @empty
                     <tr>
                         <td colspan="11" class="px-4 py-10 text-center text-zinc-400">
-                            @if (! $this->filterTahunAnggaranId)
+                            @if (!$this->filterTahunAnggaranId)
                                 Pilih tahun anggaran untuk melihat data indikator.
                             @else
                                 Belum ada indikator untuk tahun anggaran ini.
@@ -381,11 +375,13 @@ new class extends Component
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <flux:field>
-                    <flux:label>Tahun Anggaran <flux:badge size="sm" variant="blue">Wajib</flux:badge></flux:label>
+                    <flux:label>Tahun Anggaran <flux:badge size="sm" variant="blue">Wajib</flux:badge>
+                    </flux:label>
                     <flux:select wire:model="form.tahun_anggaran_id">
                         <flux:select.option value="">-- Pilih Tahun --</flux:select.option>
                         @foreach ($this->tahunAnggarans as $tahun)
-                            <flux:select.option wire:key="modal-tahun-{{ $tahun->id }}" value="{{ $tahun->id }}">
+                            <flux:select.option wire:key="modal-tahun-{{ $tahun->id }}"
+                                value="{{ $tahun->id }}">
                                 {{ $tahun->tahun }}
                             </flux:select.option>
                         @endforeach
@@ -394,7 +390,8 @@ new class extends Component
                 </flux:field>
 
                 <flux:field>
-                    <flux:label>Sekda <flux:badge size="sm" variant="blue">Wajib</flux:badge></flux:label>
+                    <flux:label>Sekda <flux:badge size="sm" variant="blue">Wajib</flux:badge>
+                    </flux:label>
                     <flux:select wire:model.live="form.sekda_id">
                         <flux:select.option value="">-- Pilih Sekda --</flux:select.option>
                         @foreach ($this->sekdas as $sekda)
@@ -461,7 +458,9 @@ new class extends Component
 
             {{-- Owner Indikator --}}
             <flux:field>
-                <flux:label>Pemilik Indikator (Kabid/Kabag) <flux:badge size="sm" variant="blue">Wajib</flux:badge></flux:label>
+                <flux:label>Pemilik Indikator (Kabid/Kabag) <flux:badge size="sm" variant="blue">Wajib
+                    </flux:badge>
+                </flux:label>
                 <flux:select wire:model="form.owner_user_id">
                     <flux:select.option value="">-- Pilih Owner --</flux:select.option>
                     @foreach ($this->usersForSelect as $user)
@@ -470,24 +469,28 @@ new class extends Component
                         </flux:select.option>
                     @endforeach
                 </flux:select>
-                <flux:description>Pilih Kepala Bidang atau Kabag yang bertanggung jawab atas indikator ini.</flux:description>
+                <flux:description>Pilih Kepala Bidang atau Kabag yang bertanggung jawab atas indikator ini.
+                </flux:description>
                 <flux:error name="form.owner_user_id" />
             </flux:field>
 
             <flux:field>
-                <flux:label>Nama Indikator <flux:badge size="sm" variant="blue">Wajib</flux:badge></flux:label>
+                <flux:label>Nama Indikator <flux:badge size="sm" variant="blue">Wajib</flux:badge>
+                </flux:label>
                 <flux:input wire:model="form.nama" placeholder="Nama indikator kinerja utama" />
                 <flux:error name="form.nama" />
             </flux:field>
 
             <flux:field>
                 <flux:label>Definisi</flux:label>
-                <flux:textarea wire:model="form.definisi" rows="3" placeholder="Deskripsi / definisi indikator" />
+                <flux:textarea wire:model="form.definisi" rows="3"
+                    placeholder="Deskripsi / definisi indikator" />
                 <flux:error name="form.definisi" />
             </flux:field>
 
             <flux:field>
-                <flux:label>Tipe Pengukuran <flux:badge size="sm" variant="blue">Wajib</flux:badge></flux:label>
+                <flux:label>Tipe Pengukuran <flux:badge size="sm" variant="blue">Wajib</flux:badge>
+                </flux:label>
                 <flux:select wire:model.live="form.measurement_type">
                     <flux:select.option value="kuantitatif">Kuantitatif (Angka)</flux:select.option>
                     <flux:select.option value="kualitatif">Kualitatif (Deskripsi)</flux:select.option>
@@ -505,14 +508,16 @@ new class extends Component
 
             @if ($form->measurement_type === 'kuantitatif')
                 <flux:field>
-                    <flux:label>Target Tahunan <flux:badge size="sm" variant="blue">Wajib</flux:badge></flux:label>
+                    <flux:label>Target Tahunan <flux:badge size="sm" variant="blue">Wajib</flux:badge>
+                    </flux:label>
                     <flux:input type="number" wire:model="form.target" min="0" step="0.01" />
                     <flux:error name="form.target" />
                 </flux:field>
             @endif
 
             <flux:field>
-                <flux:label>Bobot (%) <flux:badge size="sm" variant="blue">Wajib</flux:badge></flux:label>
+                <flux:label>Bobot (%) <flux:badge size="sm" variant="blue">Wajib</flux:badge>
+                </flux:label>
                 <flux:input type="number" wire:model="form.bobot" min="0" max="100" step="0.01" />
                 <flux:description>Total bobot semua indikator dalam 1 OPD harus = 100%.</flux:description>
                 <flux:error name="form.bobot" />
@@ -530,4 +535,3 @@ new class extends Component
         </div>
     </flux:modal>
 </div>
-

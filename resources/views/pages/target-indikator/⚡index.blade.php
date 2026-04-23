@@ -18,6 +18,7 @@ new class extends Component
 
     public function mount(): void
     {
+        abort_unless(auth()->user()->hasAnyRole(['kepala_bidang', 'kabag', 'kepala_dinas', 'asisten', 'sekda', 'bupati', 'admin_super']), 403);
         for ($b = 1; $b <= 12; $b++) {
             $this->targets[$b] = ['nilai' => '', 'deskripsi' => ''];
         }

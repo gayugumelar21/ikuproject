@@ -24,6 +24,11 @@ new class extends Component
 
     private RealisasiService $service;
 
+    public function mount(): void
+    {
+        abort_unless(auth()->user()->hasAnyRole(['kepala_bidang', 'kabag', 'kepala_dinas', 'admin_super']), 403);
+    }
+
     public function boot(RealisasiService $service): void
     {
         $this->service = $service;
@@ -198,20 +203,19 @@ new class extends Component
     </div>
 
     {{-- Tabel --}}
-    <div class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
-        <table class="w-full text-sm">
-            <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+    <div class="overflow-x-auto">
+        <table class="w-full min-w-[600px] text-sm">
+            <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-xs">
                 <tr>
-                    <th class="px-4 py-3 text-left font-medium">#</th>
-                    <th class="px-4 py-3 text-left font-medium">Nama Indikator</th>
-                    <th class="px-4 py-3 text-left font-medium">OPD</th>
-                    <th class="px-4 py-3 text-right font-medium">Target</th>
-                    <th class="px-4 py-3 text-right font-medium">Realisasi</th>
-                    <th class="px-4 py-3 text-right font-medium">%</th>
-                    <th class="px-4 py-3 text-left font-medium">Progres</th>
-                    <th class="px-4 py-3 text-center font-medium">Bukti</th>
-                    <th class="px-4 py-3 text-center font-medium">Status</th>
-                    <th class="px-4 py-3 text-center font-medium">Aksi</th>
+                    <th class="px-3 py-3 text-left font-medium w-8">#</th>
+                    <th class="px-3 py-3 text-left font-medium">Indikator</th>
+                    <th class="px-3 py-3 text-right font-medium whitespace-nowrap hidden sm:table-cell">Target</th>
+                    <th class="px-3 py-3 text-right font-medium whitespace-nowrap hidden sm:table-cell">Realisasi</th>
+                    <th class="px-3 py-3 text-right font-medium">%</th>
+                    <th class="px-3 py-3 text-left font-medium hidden lg:table-cell">Progres</th>
+                    <th class="px-3 py-3 text-center font-medium hidden md:table-cell">Bukti</th>
+                    <th class="px-3 py-3 text-center font-medium">Status</th>
+                    <th class="px-3 py-3 text-center font-medium">Aksi</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -234,68 +238,56 @@ new class extends Component
                         };
                     @endphp
                     <tr wire:key="row-{{ $indikator->id }}" class="bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
-                        <td class="px-4 py-3 text-zinc-500">{{ $i + 1 }}</td>
-                        <td class="px-4 py-3">
-                            <div class="font-medium text-zinc-900 dark:text-zinc-100">{{ $indikator->nama }}</div>
-                            <div class="text-xs text-zinc-400 mt-0.5">Bobot: {{ $indikator->bobot }}%</div>
+                        <td class="px-3 py-3 text-zinc-500 text-xs w-8">{{ $i + 1 }}</td>
+                        <td class="px-3 py-3">
+                            <div class="font-medium text-zinc-900 dark:text-zinc-100 text-sm line-clamp-2">{{ $indikator->nama }}</div>
+                            <div class="text-xs text-zinc-400 mt-0.5">{{ $indikator->opd?->name ?? '-' }} · Bobot: {{ $indikator->bobot }}%</div>
+                            {{-- Target/Realisasi di mobile --}}
+                            <div class="flex gap-3 mt-1 sm:hidden text-xs text-zinc-500">
+                                <span>Target: {{ $targetBulan ? number_format($targetBulan, 1) : '-' }}</span>
+                                <span>Realisasi: {{ $nilaiRealisasi !== null ? number_format($nilaiRealisasi, 1) : '-' }}</span>
+                            </div>
                         </td>
-                        <td class="px-4 py-3 text-zinc-500">{{ $indikator->opd?->name ?? '-' }}</td>
-                        <td class="px-4 py-3 text-right text-zinc-600 dark:text-zinc-300">
+                        <td class="px-3 py-3 text-right text-zinc-600 dark:text-zinc-300 hidden sm:table-cell whitespace-nowrap">
                             {{ $targetBulan ? number_format($targetBulan, 2) : '-' }}
                         </td>
-                        <td class="px-4 py-3 text-right text-zinc-600 dark:text-zinc-300">
+                        <td class="px-3 py-3 text-right text-zinc-600 dark:text-zinc-300 hidden sm:table-cell whitespace-nowrap">
                             {{ $nilaiRealisasi !== null ? number_format($nilaiRealisasi, 2) : '-' }}
                         </td>
-                        <td class="px-4 py-3 text-right">
+                        <td class="px-3 py-3 text-right whitespace-nowrap">
                             @if ($persentase !== null)
-                                <span class="font-semibold {{ $persentase >= 80 ? 'text-green-600' : ($persentase >= 60 ? 'text-yellow-600' : 'text-red-600') }}">
-                                    {{ number_format($persentase, 2) }}%
+                                <span class="font-semibold text-sm {{ $persentase >= 80 ? 'text-green-600' : ($persentase >= 60 ? 'text-yellow-600' : 'text-red-600') }}">
+                                    {{ number_format($persentase, 1) }}%
                                 </span>
                             @else
-                                <span class="text-zinc-400">-</span>
+                                <span class="text-zinc-400 text-xs">-</span>
                             @endif
                         </td>
-                        {{-- Kolom Progres Deskripsi --}}
-                        <td class="px-4 py-3 max-w-xs">
+                        <td class="px-3 py-3 hidden lg:table-cell">
                             @if ($realisasi?->deskripsi_progres)
-                                <p class="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2">{{ $realisasi->deskripsi_progres }}</p>
+                                <p class="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2 max-w-[180px]">{{ $realisasi->deskripsi_progres }}</p>
                             @else
-                                <span class="text-zinc-300 dark:text-zinc-600 text-xs italic">-</span>
+                                <span class="text-zinc-300 dark:text-zinc-600 text-xs">-</span>
                             @endif
                         </td>
-                        {{-- Kolom Bukti Dukung --}}
-                        <td class="px-4 py-3 text-center">
-                            <div class="flex items-center justify-center gap-2">
+                        <td class="px-3 py-3 text-center hidden md:table-cell">
+                            <div class="flex items-center justify-center gap-1.5">
                                 @if ($realisasi?->bukti_link)
-                                    <a href="{{ $realisasi->bukti_link }}" target="_blank" rel="noopener"
-                                       class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                                       title="Buka link bukti">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                                        </svg>
-                                        Link
-                                    </a>
+                                    <a href="{{ $realisasi->bukti_link }}" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">Link</a>
                                 @endif
                                 @if ($realisasi?->foto_bukti)
-                                    <a href="{{ Storage::url($realisasi->foto_bukti) }}" target="_blank" rel="noopener"
-                                       class="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-800 hover:underline"
-                                       title="Lihat foto bukti">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                                        </svg>
-                                        Foto
-                                    </a>
+                                    <a href="{{ Storage::url($realisasi->foto_bukti) }}" target="_blank" rel="noopener" class="text-xs text-emerald-600 hover:underline">Foto</a>
                                 @endif
                                 @if (! $realisasi?->bukti_link && ! $realisasi?->foto_bukti)
-                                    <span class="text-zinc-300 dark:text-zinc-600 text-xs">-</span>
+                                    <span class="text-zinc-300 text-xs">-</span>
                                 @endif
                             </div>
                         </td>
-                        <td class="px-4 py-3 text-center">
+                        <td class="px-3 py-3 text-center whitespace-nowrap">
                             @if ($status)
                                 <flux:badge variant="{{ $badgeVariant }}" size="sm">{{ ucfirst($status) }}</flux:badge>
                             @else
-                                <span class="text-zinc-400 text-xs">Belum diinput</span>
+                                <span class="text-zinc-400 text-xs">Belum</span>
                             @endif
                         </td>
                         <td class="px-4 py-3">

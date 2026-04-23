@@ -176,8 +176,8 @@ new class extends Component
     </div>
 
     {{-- Tabel Persetujuan --}}
-    <div class="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
-        <table class="w-full text-sm">
+    <div class="overflow-x-auto">
+        <table class="w-full min-w-[600px] text-sm">
             <thead class="bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
                 <tr>
                     <th class="px-4 py-3 text-left font-medium">#</th>

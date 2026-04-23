@@ -12,6 +12,7 @@ new #[Title('Pengaturan Sistem')] class extends Component
 
     public function mount(): void
     {
+        abort_unless(auth()->user()->hasRole('admin_super'), 403);
         foreach (Setting::all() as $setting) {
             $this->values[$setting->key] = Setting::get($setting->key);
         }

@@ -11,99 +11,114 @@
             </flux:sidebar.header>
 
             <flux:sidebar.nav>
+                @php $user = auth()->user(); @endphp
+
+                {{-- Dashboard — semua role --}}
                 <flux:sidebar.group :heading="__('Platform')" class="grid">
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
                 </flux:sidebar.group>
 
-                <flux:sidebar.group :heading="__('Master Data')" class="grid">
-                    <flux:sidebar.item
-                        icon="building-office"
-                        :href="route('opd.index')"
-                        :current="request()->routeIs('opd.index')"
-                        wire:navigate
-                    >
-                        {{ __('OPD') }}
-                    </flux:sidebar.item>
+                {{-- Master Data & Pengguna — admin_super saja --}}
+                @if($user->hasRole('admin_super'))
+                    <flux:sidebar.group :heading="__('Master Data')" class="grid">
+                        <flux:sidebar.item
+                            icon="building-office"
+                            :href="route('opd.index')"
+                            :current="request()->routeIs('opd.index')"
+                            wire:navigate
+                        >
+                            {{ __('OPD') }}
+                        </flux:sidebar.item>
 
-                    <flux:sidebar.item
-                        icon="calendar"
-                        :href="route('tahun-anggaran.index')"
-                        :current="request()->routeIs('tahun-anggaran.index')"
-                        wire:navigate
-                    >
-                        {{ __('Tahun Anggaran') }}
-                    </flux:sidebar.item>
-                </flux:sidebar.group>
+                        <flux:sidebar.item
+                            icon="calendar"
+                            :href="route('tahun-anggaran.index')"
+                            :current="request()->routeIs('tahun-anggaran.index')"
+                            wire:navigate
+                        >
+                            {{ __('Tahun Anggaran') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
 
-                <flux:sidebar.group :heading="__('Pengguna & Akses')" class="grid">
-                    <flux:sidebar.item
-                        icon="users"
-                        :href="route('pengguna.index')"
-                        :current="request()->routeIs('pengguna.index')"
-                        wire:navigate
-                    >
-                        {{ __('Pengguna') }}
-                    </flux:sidebar.item>
+                    <flux:sidebar.group :heading="__('Pengguna & Akses')" class="grid">
+                        <flux:sidebar.item
+                            icon="users"
+                            :href="route('pengguna.index')"
+                            :current="request()->routeIs('pengguna.index')"
+                            wire:navigate
+                        >
+                            {{ __('Pengguna') }}
+                        </flux:sidebar.item>
 
-                    <flux:sidebar.item
-                        icon="shield-check"
-                        :href="route('role.index')"
-                        :current="request()->routeIs('role.index')"
-                        wire:navigate
-                    >
-                        {{ __('Role') }}
-                    </flux:sidebar.item>
+                        <flux:sidebar.item
+                            icon="shield-check"
+                            :href="route('role.index')"
+                            :current="request()->routeIs('role.index')"
+                            wire:navigate
+                        >
+                            {{ __('Role') }}
+                        </flux:sidebar.item>
 
-                    <flux:sidebar.item
-                        icon="key"
-                        :href="route('permission.index')"
-                        :current="request()->routeIs('permission.index')"
-                        wire:navigate
-                    >
-                        {{ __('Permission') }}
-                    </flux:sidebar.item>
-                </flux:sidebar.group>
+                        <flux:sidebar.item
+                            icon="key"
+                            :href="route('permission.index')"
+                            :current="request()->routeIs('permission.index')"
+                            wire:navigate
+                        >
+                            {{ __('Permission') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+                @endif
 
-                <flux:sidebar.group :heading="__('IKU')" class="grid">
-                    <flux:sidebar.item
-                        icon="chart-bar"
-                        :href="route('indikator.index')"
-                        :current="request()->routeIs('indikator.index')"
-                        wire:navigate
-                    >
-                        {{ __('Indikator') }}
-                    </flux:sidebar.item>
+                {{-- IKU — semua kecuali bupati --}}
+                @if($user->hasAnyRole(['kepala_bidang', 'kabag', 'kepala_dinas', 'asisten', 'sekda', 'admin_super']))
+                    <flux:sidebar.group :heading="__('IKU')" class="grid">
+                        <flux:sidebar.item
+                            icon="chart-bar"
+                            :href="route('indikator.index')"
+                            :current="request()->routeIs('indikator.index')"
+                            wire:navigate
+                        >
+                            {{ __('Indikator') }}
+                        </flux:sidebar.item>
 
-                    <flux:sidebar.item
-                        icon="link"
-                        :href="route('kerjasama.index')"
-                        :current="request()->routeIs('kerjasama.index')"
-                        wire:navigate
-                    >
-                        {{ __('IKU Kerjasama') }}
-                    </flux:sidebar.item>
+                        <flux:sidebar.item
+                            icon="link"
+                            :href="route('kerjasama.index')"
+                            :current="request()->routeIs('kerjasama.index')"
+                            wire:navigate
+                        >
+                            {{ __('IKU Kerjasama') }}
+                        </flux:sidebar.item>
 
-                    <flux:sidebar.item
-                        icon="table-cells"
-                        :href="route('target-indikator.index')"
-                        :current="request()->routeIs('target-indikator.index')"
-                        wire:navigate
-                    >
-                        {{ __('Target Indikator') }}
-                    </flux:sidebar.item>
+                        <flux:sidebar.item
+                            icon="table-cells"
+                            :href="route('target-indikator.index')"
+                            :current="request()->routeIs('target-indikator.index')"
+                            wire:navigate
+                        >
+                            {{ __('Target Indikator') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+                @endif
 
-                    <flux:sidebar.item
-                        icon="arrow-trending-up"
-                        :href="route('realisasi.index')"
-                        :current="request()->routeIs('realisasi.index')"
-                        wire:navigate
-                    >
-                        {{ __('Realisasi') }}
-                    </flux:sidebar.item>
-                </flux:sidebar.group>
+                {{-- Realisasi — kepala_bidang, kabag, kepala_dinas, admin_super --}}
+                @if($user->hasAnyRole(['kepala_bidang', 'kabag', 'kepala_dinas', 'admin_super']))
+                    <flux:sidebar.group :heading="__('Operasional')" class="grid">
+                        <flux:sidebar.item
+                            icon="arrow-trending-up"
+                            :href="route('realisasi.index')"
+                            :current="request()->routeIs('realisasi.index')"
+                            wire:navigate
+                        >
+                            {{ __('Realisasi') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+                @endif
 
+                {{-- Monitoring — semua role --}}
                 <flux:sidebar.group :heading="__('Monitoring')" class="grid">
                     <flux:sidebar.item
                         icon="check-badge"
@@ -122,26 +137,6 @@
                     >
                         {{ __('Rekap Capaian') }}
                     </flux:sidebar.item>
-                </flux:sidebar.group>
-
-                <flux:sidebar.group :heading="__('Skoring IKU')" class="grid">
-                    <flux:sidebar.item
-                        icon="star"
-                        :href="route('skoring-ta.index')"
-                        :current="request()->routeIs('skoring-ta.index')"
-                        wire:navigate
-                    >
-                        {{ __('Skoring TA') }}
-                    </flux:sidebar.item>
-
-                    <flux:sidebar.item
-                        icon="trophy"
-                        :href="route('skoring-bupati.index')"
-                        :current="request()->routeIs('skoring-bupati.index')"
-                        wire:navigate
-                    >
-                        {{ __('Skoring Bupati') }}
-                    </flux:sidebar.item>
 
                     <flux:sidebar.item
                         icon="arrows-right-left"
@@ -153,16 +148,44 @@
                     </flux:sidebar.item>
                 </flux:sidebar.group>
 
-                <flux:sidebar.group :heading="__('Sistem')" class="grid">
-                    <flux:sidebar.item
-                        icon="cog-6-tooth"
-                        :href="route('pengaturan.index')"
-                        :current="request()->routeIs('pengaturan.index')"
-                        wire:navigate
-                    >
-                        {{ __('Pengaturan') }}
-                    </flux:sidebar.item>
-                </flux:sidebar.group>
+                {{-- Skoring IKU — bupati dan admin_super --}}
+                @if($user->hasAnyRole(['bupati', 'admin_super']))
+                    <flux:sidebar.group :heading="__('Skoring IKU')" class="grid">
+                        @if($user->hasRole('admin_super'))
+                            <flux:sidebar.item
+                                icon="star"
+                                :href="route('skoring-ta.index')"
+                                :current="request()->routeIs('skoring-ta.index')"
+                                wire:navigate
+                            >
+                                {{ __('Skoring TA') }}
+                            </flux:sidebar.item>
+                        @endif
+
+                        <flux:sidebar.item
+                            icon="trophy"
+                            :href="route('skoring-bupati.index')"
+                            :current="request()->routeIs('skoring-bupati.index')"
+                            wire:navigate
+                        >
+                            {{ __('Skoring Bupati') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+                @endif
+
+                {{-- Sistem — admin_super saja --}}
+                {{-- @if($user->hasRole('admin_super'))
+                    <flux:sidebar.group :heading="__('Sistem')" class="grid">
+                        <flux:sidebar.item
+                            icon="cog-6-tooth"
+                            :href="route('pengaturan.index')"
+                            :current="request()->routeIs('pengaturan.index')"
+                            wire:navigate
+                        >
+                            {{ __('Pengaturan') }}
+                        </flux:sidebar.item>
+                    </flux:sidebar.group>
+                @endif --}}
             </flux:sidebar.nav>
 
             <flux:spacer />

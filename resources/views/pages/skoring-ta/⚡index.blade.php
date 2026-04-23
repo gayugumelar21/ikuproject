@@ -25,6 +25,7 @@ new #[Title('Skoring Tenaga Ahli')] class extends Component {
 
     public function mount(): void
     {
+        abort_unless(auth()->user()->hasRole('admin_super'), 403);
         $this->bulan = (int) now()->format('n');
         $this->tahun = (int) now()->format('Y');
     }
@@ -193,8 +194,8 @@ new #[Title('Skoring Tenaga Ahli')] class extends Component {
                 </flux:button>
             </div>
 
-            <div class="overflow-x-auto rounded-lg border border-amber-200 dark:border-amber-700">
-                <table class="w-full text-sm">
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[600px] text-sm">
                     <thead class="bg-amber-50 dark:bg-amber-900/30 text-zinc-600 dark:text-zinc-300">
                         <tr>
                             <th class="px-4 py-3 text-left font-medium">OPD / Bidang</th>
@@ -376,33 +377,39 @@ new #[Title('Skoring Tenaga Ahli')] class extends Component {
 
                     {{-- Realisasi & Bukti Dukung --}}
                     @if ($skoring->realisasi)
-                        <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-4 space-y-2">
-                            <p class="text-xs font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wide">Realisasi Bulan Ini</p>
+                        <div
+                            class="rounded-lg bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 p-4 space-y-2">
+                            <p class="text-xs font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wide">
+                                Realisasi Bulan Ini</p>
                             @if ($skoring->indikator->measurement_type !== 'kualitatif')
                                 <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                     {{ $skoring->realisasi->nilai }} {{ $skoring->indikator->satuan }}
                                 </p>
                             @endif
                             @if ($skoring->realisasi->keterangan)
-                                <p class="text-xs text-zinc-600 dark:text-zinc-400">{{ $skoring->realisasi->keterangan }}</p>
+                                <p class="text-xs text-zinc-600 dark:text-zinc-400">
+                                    {{ $skoring->realisasi->keterangan }}</p>
                             @endif
                             @if ($skoring->realisasi->deskripsi_progres)
                                 <div class="border-t border-zinc-200 dark:border-zinc-700 pt-2">
                                     <p class="text-xs font-medium text-zinc-500 mb-1">Deskripsi Progres</p>
-                                    <p class="text-xs text-zinc-600 dark:text-zinc-400 italic">{{ $skoring->realisasi->deskripsi_progres }}</p>
+                                    <p class="text-xs text-zinc-600 dark:text-zinc-400 italic">
+                                        {{ $skoring->realisasi->deskripsi_progres }}</p>
                                 </div>
                             @endif
                             @if ($skoring->realisasi->bukti_link || $skoring->realisasi->foto_bukti)
                                 <div class="flex flex-wrap gap-3 border-t border-zinc-200 dark:border-zinc-700 pt-2">
                                     @if ($skoring->realisasi->bukti_link)
-                                        <a href="{{ $skoring->realisasi->bukti_link }}" target="_blank" rel="noopener"
-                                           class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:underline">
+                                        <a href="{{ $skoring->realisasi->bukti_link }}" target="_blank"
+                                            rel="noopener"
+                                            class="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:underline">
                                             <flux:icon name="link" class="h-3.5 w-3.5" /> Bukti Link
                                         </a>
                                     @endif
                                     @if ($skoring->realisasi->foto_bukti)
-                                        <a href="{{ Storage::url($skoring->realisasi->foto_bukti) }}" target="_blank" rel="noopener"
-                                           class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 hover:underline">
+                                        <a href="{{ Storage::url($skoring->realisasi->foto_bukti) }}" target="_blank"
+                                            rel="noopener"
+                                            class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 hover:underline">
                                             <flux:icon name="photo" class="h-3.5 w-3.5" /> Foto Bukti
                                         </a>
                                     @endif
