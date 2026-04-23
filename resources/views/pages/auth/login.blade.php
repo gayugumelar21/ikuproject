@@ -1,6 +1,6 @@
 <x-layouts::auth :title="__('Masuk')">
     <div class="flex flex-col gap-6">
-        <x-auth-header :title="__('Sistem IKU')" :description="__('Masukkan username dan kata sandi untuk masuk')" />
+        <x-auth-header :title="__('Sistem IKU Kabupaten Pringsewu')" :description="__('Masukkan username dan kata sandi untuk masuk')" />
 
         <x-auth-session-status class="text-center" :status="session('status')" />
 
