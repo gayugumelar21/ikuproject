@@ -13,14 +13,9 @@ use Flux\Flux;
 
 new #[Title('IKU Kerjasama Lintas OPD')] class extends Component
 {
-    public function mount(): void
-    {
-        abort_unless(auth()->user()->hasAnyRole(['kepala_bidang', 'kabag', 'kepala_dinas', 'asisten', 'sekda', 'bupati', 'admin_super']), 403);
-    }
-
     public ?int $filterTahunAnggaranId = null;
     public ?int $filterOpdId = null;
-    public int $filterBulan;
+    public int $filterBulan = 1;
 
     public bool $isEditing = false;
     public ?int $kerjasamaId = null;
@@ -38,6 +33,7 @@ new #[Title('IKU Kerjasama Lintas OPD')] class extends Component
 
     public function mount(): void
     {
+        abort_unless(auth()->user()->hasAnyRole(['kepala_bidang', 'kabag', 'kepala_dinas', 'asisten', 'sekda', 'bupati', 'admin_super']), 403);
         $aktif = TahunAnggaran::aktif()->first();
         $this->filterTahunAnggaranId = $aktif?->id;
         $this->filterBulan = now()->month;

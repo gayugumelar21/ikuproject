@@ -24,11 +24,6 @@ new class extends Component
 
     private RealisasiService $service;
 
-    public function mount(): void
-    {
-        abort_unless(auth()->user()->hasAnyRole(['kepala_bidang', 'kabag', 'kepala_dinas', 'admin_super']), 403);
-    }
-
     public function boot(RealisasiService $service): void
     {
         $this->service = $service;
@@ -36,6 +31,7 @@ new class extends Component
 
     public function mount(): void
     {
+        abort_unless(auth()->user()->hasAnyRole(['kepala_bidang', 'kabag', 'kepala_dinas', 'admin_super']), 403);
         $aktif = TahunAnggaran::aktif()->first();
         $this->filterTahunAnggaranId = $aktif?->id;
         $this->filterBulan = now()->month;
